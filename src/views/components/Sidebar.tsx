@@ -1,29 +1,54 @@
-// src/views/components/Sidebar.tsx
 import React from 'react';
 
 interface SidebarProps {
   abaAtiva: string;
   setAbaAtiva: (aba: string) => void;
+  setSidebarAberta: (aberta: boolean) => void; 
 }
 
-const Sidebar = ({ abaAtiva, setAbaAtiva }: SidebarProps) => {
+const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
+  
   const getStyle = (id: string) => ({
-    padding: '10px',
+    padding: '12px 15px',
     textAlign: 'left' as const,
     cursor: 'pointer',
     background: abaAtiva === id ? '#34495e' : 'transparent',
     color: 'white',
     border: 'none',
-    width: '100%'
+    borderRadius: '4px',
+    width: '100%',
+    transition: '0.2'
   });
 
   return (
     <aside style={{ width: '250px', background: '#2c3e50', color: 'white', padding: '20px' }}>
-      <h2 style={{ marginBottom: '30px' }}>📦 Estoque</h2>
-      <nav style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        <button style={getStyle('dashboard')} onClick={() => setAbaAtiva('dashboard')}>Dashboard</button>
-        <button style={getStyle('estoque')} onClick={() => setAbaAtiva('estoque')}>Estoque</button>
-        <button style={getStyle('config')} onClick={() => setAbaAtiva('config')}>Configurações</button>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        gap: '12px', 
+        marginBottom: '30px',
+      }}>
+        <button 
+          onClick={() => setSidebarAberta(false)} 
+          style={{ 
+            background: 'none', 
+            border: 'none', 
+            color: 'white', 
+            fontSize: '24px', 
+            cursor: 'pointer',
+            padding: '0'
+          }}
+        >
+          ☰
+        </button>
+        <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Stock</h2>
+      </div>
+
+      <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+        <button style={getStyle('dashboard')} onClick={() => setAbaAtiva('dashboard')}>📊 Dashboard</button>
+        <button style={getStyle('estoque')} onClick={() => setAbaAtiva('estoque')}>📦 Estoque</button>
+        <button style={getStyle('producao')} onClick={() => setAbaAtiva('producao')}>🔨 Produção</button>
+        <button style={getStyle('config')} onClick={() => setAbaAtiva('config')}>⚙️ Configurações</button>
       </nav>
     </aside>
   );
