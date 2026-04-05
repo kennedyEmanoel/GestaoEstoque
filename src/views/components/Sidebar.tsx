@@ -21,7 +21,13 @@ const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
   });
 
   return (
-    <aside style={{ width: '250px', background: '#2c3e50', color: 'white', padding: '20px' }}>
+    <aside style={{ 
+      width: '250px', 
+      height: "100%", 
+      background: '#04203b', 
+      color: 'white', 
+      padding: '20px' 
+    }}>
       <div style={{ 
         display: 'flex', 
         alignItems: 'center', 
@@ -41,13 +47,13 @@ const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
         >
           ☰
         </button>
-        <h2 style={{ margin: 0, fontSize: '1.2rem' }}>Stock</h2>
       </div>
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
         <button style={getStyle('dashboard')} onClick={() => setAbaAtiva('dashboard')}>📊 Dashboard</button>
         <button style={getStyle('estoque')} onClick={() => setAbaAtiva('estoque')}>📦 Estoque</button>
         <button style={getStyle('producao')} onClick={() => setAbaAtiva('producao')}>🔨 Produção</button>
+        <button style={getStyle('Mov')} onClick={() => setAbaAtiva('Mov')}>🔄 Movimentações</button>
         <button style={getStyle('config')} onClick={() => setAbaAtiva('config')}>⚙️ Configurações</button>
       </nav>
     </aside>

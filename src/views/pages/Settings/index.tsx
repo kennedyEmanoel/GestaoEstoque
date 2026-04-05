@@ -1,4 +1,3 @@
-// src/views/pages/Dashboard/index.tsx
 import React from 'react';
 
 const Settings = () => {

@@ -1,7 +1,10 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron'; // <-- Adicionado o Menu aqui
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 
+// 👇 Estas duas linhas removem os 3 erros vermelhos (TS2304) que estão no seu print
+declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
+declare const MAIN_WINDOW_VITE_NAME: string;
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -9,6 +12,9 @@ if (started) {
 }
 
 const createWindow = () => {
+  // 👇 Esta linha desativa o menu padrão (File, Edit, View...)
+  Menu.setApplicationMenu(null);
+
   // Create the browser window.
   const mainWindow = new BrowserWindow({
     width: 1200,
