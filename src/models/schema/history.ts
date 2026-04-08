@@ -9,7 +9,8 @@ export const history = table("history", {
   boxId: t.text("box_id").notNull().references(() => box.id),
   startTime: t.integer("start_time", { mode: "timestamp" }).notNull().$defaultFn(() => new Date()),
   endTime: t.integer("end_time", { mode: "timestamp" }),
-  operation: t.text("operation").notNull(),
+  timeSpent: t.integer("timeSpent", { mode: "timestamp" }),
+  typeOperation: t.text("operation").notNull(),
   step: t.text("step").notNull(),
   location: t.text("location"),
   operator: t.text("operator")
