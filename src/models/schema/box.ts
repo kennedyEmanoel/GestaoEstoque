@@ -6,7 +6,7 @@ export const box = table('box', {
   model: t.text('model'),
   amount: t.integer('amount').notNull().default(0),
   step: t.text('etapa').notNull(),
-  location: t.text('location').default('Estoque'),
+  location: t.text('location').$type<'Estoque' | 'Produção'>().default('Estoque'),
   weight: t.real('weight').notNull(),
   operator: t.text('operator'),
   description:t.text('description'),

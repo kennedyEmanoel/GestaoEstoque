@@ -13,5 +13,7 @@ export const history = table("history", {
   typeOperation: t.text("operation").notNull(),
   step: t.text("step").notNull(),
   location: t.text("location"),
+  lot: t.text("lot"),
+  description: t.text(),
   operator: t.text("operator")
 });

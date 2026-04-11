@@ -17,17 +17,7 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
   });
 
   if (!isOpen) return null;
-
-  /**const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    console.log("Dados para o SQLite:", formData);
-    // Aqui entrará o db.insert(boxes).values(...) do Drizzle
-    alert('Caixa registrada com sucesso!');
-    setFormData({ id: '', model: '', amount: '', weight: '', operator: '', step: '' });
-    onClose(); // Fecha o modal automaticamente após salvar
-  };**/
-
-  // Adicione 'async' na função
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
