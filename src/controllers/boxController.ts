@@ -1,40 +1,35 @@
 import { ipcMain } from 'electron';
-import { db } from '../models/db'; 
-import { eq } from 'drizzle-orm';
-import { box } from '../models/schema/box'; 
+// Importamos APENAS as funções do Service. O Controller não sabe que o banco existe.
+import { createBox, NewBoxInput } from '../services/boxServices'
 
 export const setupBoxControllers = () => {
-  ipcMain.handle('create-box', async (event, boxData) => {
+
+  // 1. ROTA DE CRIAÇÃO
+  ipcMain.handle('create-box', async (event, boxData: NewBoxInput) => {
     try {
-      // Fazemos o insert usando Drizzle ORM
-      await db.insert(box).values({
-        id: boxData.id,
-        model: boxData.model,
-        amount: Number(boxData.amount), // Garantindo que seja número
-        weight: Number(boxData.weight), // Garantindo que seja número (real)
-        operator: boxData.operator,
-        step: 'estoque', 
-      });
+      // O Controller entrega o pacote para o Service e aguarda o resultado
+      const novaCaixa = await createBox(boxData);
       
-      return { success: true };
-    } catch (error) {
-      console.error('Erro ao salvar no SQLite:', error);
-      return { success: false, error: 'Erro ao salvar caixa no banco de dados.' };
+      // Devolve para a tela exatamente o que ela precisa ouvir
+      return { success: true, data: novaCaixa };
+      
+    } catch (error: any) {
+      // Se o Service gritar (ex: "ID Inválido", "Etapa errada para 4GS")
+      // O Controller pega essa mensagem e manda para a tela mostrar em vermelho
+      return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('get-box', async (event, id: string) => {
+  // 2. ROTA DE BUSCA (Leitor de Código de Barras)
+  /**ipcMain.handle('get-box', async (event, id: string) => {
     try {
-      // Busca a caixa onde o ID seja igual ao código de barras bipado
-      const result = await db.select().from(box).where(eq(box.id, id)).limit(1);
+      // O Controller também não faz buscas no banco. Ele pede para o Service.
+      const caixaEncontrada = await getBoxById(id);
+      return { success: true, data: caixaEncontrada };
       
-      if (result.length > 0) {
-        return { success: true, data: result[0] };
-      }
-      return { success: false, error: 'Caixa não encontrada' };
-    } catch (error) {
-      console.error('Erro ao buscar no SQLite:', error);
-      return { success: false, error: 'Erro interno ao buscar caixa.' };
+    } catch (error: any) {
+      return { success: false, error: error.message };
     }
-  });
+  });**/
+
 };
