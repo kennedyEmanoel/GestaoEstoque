@@ -84,3 +84,16 @@ export async function createBox(data: NewBoxInput) {
     throw new Error(`Erro interno: ${error.message}`);
   }
 }
+
+
+export async function getBoxById(id: string) {
+  const cleanId = id.trim().toUpperCase();
+  
+  const result = await db.select().from(box).where(eq(box.id, cleanId)).limit(1);
+  
+  if (result.length === 0) {
+    throw new Error(`Caixa com ID '${cleanId}' não encontrada no estoque.`);
+  }
+  
+  return result[0];
+}

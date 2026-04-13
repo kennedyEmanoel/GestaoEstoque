@@ -10,5 +10,6 @@ export const box = table('box', {
   weight: t.real('weight').notNull(),
   operator: t.text('operator'),
   description:t.text('description'),
+  lot: t.text('lot'),
   date: t.integer("date", { mode: "timestamp" }).$defaultFn(() => new Date())
 });
