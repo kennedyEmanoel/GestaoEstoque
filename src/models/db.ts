@@ -4,7 +4,7 @@ import { app } from 'electron';
 import path from 'path';
 import * as schema from './schema'; 
 
-const dbPath = path.join(app.getPath('userData'), 'gestao_estoque_v2.sqlite');
+const dbPath = path.join(app.getPath('userData'), 'bd_estoque.sqlite');
 const sqlite = new Database(dbPath);
 
 sqlite.pragma('journal_mode = WAL');

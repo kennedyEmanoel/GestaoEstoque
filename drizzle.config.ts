@@ -5,6 +5,6 @@ export default defineConfig({
   out: './drizzle',            
   dialect: 'sqlite',
   dbCredentials: {
-    url: 'C:/Users/kenne/AppData/Roaming/gestaoestoque/bd_estoque', 
+    url: 'C:/Users/kenne/AppData/Roaming/gestaoestoque/bd_estoque.sqlite', 
   },
 });
