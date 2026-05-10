@@ -1,7 +1,7 @@
-import { app, BrowserWindow, Menu } from 'electron'; // <-- Adicionado o Menu aqui
+import { app, BrowserWindow, Menu } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import { setupBoxControllers } from './main/controllers/boxController';
+import { setupBoxControllers } from './controllers/boxController';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -30,8 +30,6 @@ const createWindow = () => {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
-
-  mainWindow.webContents.openDevTools();
 };
 
 app.on('ready', createWindow);

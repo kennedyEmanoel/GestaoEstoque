@@ -1,8 +1,6 @@
-// src/models/schema/history.ts
 import { sqliteTable as table } from "drizzle-orm/sqlite-core";
 import * as t from "drizzle-orm/sqlite-core";
-
-import { box } from "./box"; 
+import { box } from "./box";
 
 export const history = table("history", {
   id: t.integer("id").primaryKey({ autoIncrement: true }),
