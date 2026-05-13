@@ -9,33 +9,38 @@ import type { NewBoxInput, ScanInput, StockSummary } from '../../shared/types';
 
 const ID_REGEX = /^(BDJ|NB2|4GS|LOR|NBL)\d{4,}$/;
 
-// Sequência padrão para todos os prefixos
-const DEFAULT_STEP_SEQUENCE: ProductionStep[] = [
-  'Montagem', 'Soldagem', 'Revisao', 'Firmware', 'IMEI', 'Concluida'
-];
+// Mapa de transições válidas por prefixo.
+// Cada etapa aponta para as etapas que podem vir depois dela.
+// 4GS tem fork após Revisao: pode ir para IMEI ou Firmware em qualquer ordem.
+type TransitionMap = Partial<Record<ProductionStep, ProductionStep[]>>;
 
-// 4GS pode trocar Firmware ↔ IMEI
-const STEP_SEQUENCE_4GS: ProductionStep[] = [
-  'Montagem', 'Soldagem', 'Revisao', 'IMEI', 'Firmware', 'Concluida'
-];
+const DEFAULT_TRANSITIONS: TransitionMap = {
+  'Montagem':  ['Soldagem'],
+  'Soldagem':  ['Revisao'],
+  'Revisao':   ['Firmware'],
+  'Firmware':  ['IMEI'],
+  'IMEI':      ['Concluida'],
+};
 
-function getStepSequence(boxId: string): ProductionStep[] {
+const TRANSITIONS_4GS: TransitionMap = {
+  'Montagem':  ['Soldagem'],
+  'Soldagem':  ['Revisao'],
+  'Revisao':   ['IMEI', 'Firmware'],   // fork: qualquer um dos dois
+  'IMEI':      ['Firmware', 'Concluida'], // se IMEI primeiro, próximo é Firmware ou Concluida
+  'Firmware':  ['IMEI', 'Concluida'],     // se Firmware primeiro, próximo é IMEI ou Concluida
+};
+
+function getTransitions(boxId: string): TransitionMap {
   const prefix = boxId.substring(0, 3) as BoxPrefix;
-  return prefix === '4GS' ? STEP_SEQUENCE_4GS : DEFAULT_STEP_SEQUENCE;
+  return prefix === '4GS' ? TRANSITIONS_4GS : DEFAULT_TRANSITIONS;
 }
 
-function getNextStep(boxId: string, currentStep: ProductionStep): ProductionStep | null {
-  const sequence = getStepSequence(boxId);
-  const idx = sequence.indexOf(currentStep);
-  if (idx === -1 || idx === sequence.length - 1) return null;
-  return sequence[idx + 1];
+function getNextSteps(boxId: string, currentStep: ProductionStep): ProductionStep[] {
+  return getTransitions(boxId)[currentStep] ?? [];
 }
 
 function isValidTransition(boxId: string, from: ProductionStep, to: ProductionStep): boolean {
-  const sequence = getStepSequence(boxId);
-  const fromIdx = sequence.indexOf(from);
-  const toIdx = sequence.indexOf(to);
-  return toIdx === fromIdx + 1;
+  return getNextSteps(boxId, from).includes(to);
 }
 
 // ─── createBox ───────────────────────────────────────────────────────────────
@@ -109,12 +114,10 @@ export async function scanBox(data: ScanInput) {
   }
 
   if (!isValidTransition(cleanId, currentStep, data.step)) {
-    const sequence = getStepSequence(cleanId);
-    const nextExpected = getNextStep(cleanId, currentStep);
+    const nextSteps = getNextSteps(cleanId, currentStep);
     throw new Error(
       `Transição inválida: '${currentStep}' → '${data.step}'. ` +
-      `Próxima etapa esperada: '${nextExpected ?? 'Concluída'}'. ` +
-      `Sequência para ${cleanId.substring(0, 3)}: ${sequence.join(' → ')}`
+      `Próximas etapas válidas: ${nextSteps.length ? nextSteps.join(' ou ') : 'nenhuma'}.`
     );
   }
 
