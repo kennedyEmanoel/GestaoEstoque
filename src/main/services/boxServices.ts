@@ -45,7 +45,7 @@ function isValidTransition(boxId: string, from: ProductionStep, to: ProductionSt
 
 // ─── createBox ───────────────────────────────────────────────────────────────
 
-export async function createBox(data: NewBoxInput) {
+export function createBox(data: NewBoxInput) {
   const cleanId = data.id.trim().toUpperCase();
 
   if (!ID_REGEX.test(cleanId)) {
@@ -57,7 +57,7 @@ export async function createBox(data: NewBoxInput) {
   const firstStep: ProductionStep = 'Montagem';
 
   try {
-    const result = await db.insert(box).values({
+    const [result] = db.insert(box).values({
       id: cleanId,
       weight: data.weight,
       amount: data.amount ?? 500,
@@ -68,9 +68,9 @@ export async function createBox(data: NewBoxInput) {
       origin,
       step: data.step ?? firstStep,
       location: data.location ?? 'ESTOQUE',
-    }).returning();
+    }).returning().all();
 
-    return result[0];
+    return result;
   } catch (error: any) {
     if (error.message.includes('UNIQUE constraint failed')) {
       throw new Error(`O código ${cleanId} já existe.`);
@@ -81,29 +81,22 @@ export async function createBox(data: NewBoxInput) {
 
 // ─── getBoxById ──────────────────────────────────────────────────────────────
 
-export async function getBoxById(id: string) {
+export function getBoxById(id: string) {
   const cleanId = id.trim().toUpperCase();
-  const result = await db.select().from(box).where(eq(box.id, cleanId)).limit(1);
+  const [result] = db.select().from(box).where(eq(box.id, cleanId)).limit(1).all();
 
-  if (result.length === 0) {
+  if (!result) {
     throw new Error(`Código '${cleanId}' não encontrado.`);
   }
-  return result[0];
+  return result;
 }
 
 // ─── scanBox (bipagem) ───────────────────────────────────────────────────────
 
-/**
- * Registra uma bipagem de caixa.
- * - Valida a transição de etapa pela máquina de estados.
- * - Se existir um registro de history aberto (sem endTime), fecha ele antes.
- * - Cria um novo registro SCAN_START.
- * - Atualiza step e location da caixa.
- */
-export async function scanBox(data: ScanInput) {
+export function scanBox(data: ScanInput) {
   const cleanId = data.boxId.trim().toUpperCase();
 
-  const [currentBox] = await db.select().from(box).where(eq(box.id, cleanId)).limit(1);
+  const [currentBox] = db.select().from(box).where(eq(box.id, cleanId)).limit(1).all();
   if (!currentBox) {
     throw new Error(`Caixa '${cleanId}' não encontrada.`);
   }
@@ -123,47 +116,49 @@ export async function scanBox(data: ScanInput) {
 
   const now = new Date();
 
-  // Fecha registro aberto, se existir
-  const [openRecord] = await db
-    .select()
-    .from(history)
-    .where(and(eq(history.boxId, cleanId), isNull(history.endTime)))
-    .limit(1);
+  const result = db.transaction((tx) => {
+    const [openRecord] = tx
+      .select()
+      .from(history)
+      .where(and(eq(history.boxId, cleanId), isNull(history.endTime)))
+      .limit(1)
+      .all();
 
-  if (openRecord) {
-    const startMs = openRecord.startTime instanceof Date
-      ? openRecord.startTime.getTime()
-      : (openRecord.startTime as number) * 1000;
-    const timeSpent = Math.floor((now.getTime() - startMs) / 1000);
+    if (openRecord) {
+      const startMs = openRecord.startTime instanceof Date
+        ? openRecord.startTime.getTime()
+        : (openRecord.startTime as number) * 1000;
+      const timeSpent = Math.floor((now.getTime() - startMs) / 1000);
 
-    await db
-      .update(history)
-      .set({ endTime: now, timeSpent })
-      .where(eq(history.id, openRecord.id));
-  }
+      tx.update(history)
+        .set({ endTime: now, timeSpent })
+        .where(eq(history.id, openRecord.id))
+        .run();
+    }
 
-  // Cria novo registro SCAN_START
-  const [newRecord] = await db.insert(history).values({
-    boxId: cleanId,
-    startTime: now,
-    typeOperation: 'SCAN_START',
-    step: data.step,
-    location: data.location,
-    operator: data.operator,
-    description: data.description ?? null,
-  }).returning();
+    const [newRecord] = tx.insert(history).values({
+      boxId: cleanId,
+      startTime: now,
+      typeOperation: 'SCAN_START',
+      step: data.step,
+      location: data.location,
+      operator: data.operator,
+      description: data.description ?? null,
+    }).returning().all();
 
-  // Atualiza a caixa
-  await db
-    .update(box)
-    .set({ step: data.step, location: data.location, operator: data.operator })
-    .where(eq(box.id, cleanId));
+    tx.update(box)
+      .set({ step: data.step, location: data.location, operator: data.operator })
+      .where(eq(box.id, cleanId))
+      .run();
 
-  return {
-    box: { ...currentBox, step: data.step, location: data.location, operator: data.operator },
-    historyRecord: newRecord,
-    closedPreviousRecord: openRecord ? openRecord.id : null,
-  };
+    return {
+      box: { ...currentBox, step: data.step, location: data.location, operator: data.operator },
+      historyRecord: newRecord,
+      closedPreviousRecord: openRecord ? openRecord.id : null,
+    };
+  });
+
+  return result;
 }
 
 // ─── finishStep ──────────────────────────────────────────────────────────────
@@ -171,15 +166,16 @@ export async function scanBox(data: ScanInput) {
 /**
  * Fecha manualmente o registro aberto de uma caixa, calculando o timeSpent.
  */
-export async function finishStep(boxId: string, operator: string) {
+export function finishStep(boxId: string, operator: string) {
   const cleanId = boxId.trim().toUpperCase();
   const now = new Date();
 
-  const [openRecord] = await db
+  const [openRecord] = db
     .select()
     .from(history)
     .where(and(eq(history.boxId, cleanId), isNull(history.endTime)))
-    .limit(1);
+    .limit(1)
+    .all();
 
   if (!openRecord) {
     throw new Error(`Nenhuma etapa aberta encontrada para a caixa '${cleanId}'.`);
@@ -190,30 +186,32 @@ export async function finishStep(boxId: string, operator: string) {
     : (openRecord.startTime as number) * 1000;
   const timeSpent = Math.floor((now.getTime() - startMs) / 1000);
 
-  const [closed] = await db
+  const [closed] = db
     .update(history)
     .set({ endTime: now, timeSpent, operator })
     .where(eq(history.id, openRecord.id))
-    .returning();
+    .returning()
+    .all();
 
   return closed;
 }
 
 // ─── getBoxHistory ────────────────────────────────────────────────────────────
 
-export async function getBoxHistory(boxId: string) {
+export function getBoxHistory(boxId: string) {
   const cleanId = boxId.trim().toUpperCase();
   return db
     .select()
     .from(history)
     .where(eq(history.boxId, cleanId))
-    .orderBy(history.startTime);
+    .orderBy(history.startTime)
+    .all();
 }
 
 // ─── getStockSummary ──────────────────────────────────────────────────────────
 
-export async function getStockSummary(): Promise<StockSummary> {
-  const allBoxes = await db.select({ location: box.location, step: box.step }).from(box);
+export function getStockSummary(): StockSummary {
+  const allBoxes = db.select({ location: box.location, step: box.step }).from(box).all();
 
   const byLocation: Record<string, number> = {};
   const byStep: Partial<Record<ProductionStep, number>> = {};

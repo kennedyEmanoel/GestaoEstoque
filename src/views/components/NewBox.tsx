@@ -14,13 +14,13 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
     operator: '',
     step: 'Montagem',
     description: '',
-    volume: '',     // NOVO CAMPO
-    location: ''    // NOVO CAMPO
+    volume: '',
+    location: 'ESTOQUE',
   });
 
   if (!isOpen) return null;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     try {
@@ -71,8 +71,10 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
           </div>
 
           <div>
-            <label className="block text-xs font-black text-slate-500 uppercase mb-2 tracking-tighter">Localização (Bancada/Armário)</label>
-            <input required type="text" value={formData.location} onChange={(e) => setFormData({...formData, location: e.target.value})} placeholder="Bipe o local" className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none font-bold" />
+            <label className="block text-xs font-black text-slate-500 uppercase mb-2 tracking-tighter">Localização</label>
+            <div className="w-full p-3 bg-slate-100 border-2 border-slate-200 rounded-xl font-bold text-slate-500 text-sm">
+              Estoque (entrada padrão)
+            </div>
           </div>
 
           <div className="col-span-2">
@@ -109,13 +111,12 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
               onChange={(e) => setFormData({...formData, step: e.target.value})} 
               className="w-full p-3 bg-slate-50 border-2 border-slate-200 rounded-xl focus:border-blue-500 outline-none font-bold text-slate-700 cursor-pointer"
             >
-              <option value="Recebimento">Recebimento</option>
               <option value="Montagem">Montagem</option>
-              <option value="Solda">Solda</option>
+              <option value="Soldagem">Soldagem</option>
               <option value="Revisao">Revisão</option>
               <option value="Firmware">Firmware</option>
-              <option value="Imei">Imei</option>
-              <option value="Serial">Serial</option>
+              <option value="IMEI">IMEI</option>
+              <option value="Concluida">Concluída</option>
             </select>
           </div>
 
@@ -166,7 +167,7 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
 
   if (!isOpen) return null;
   
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     try {

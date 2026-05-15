@@ -14,12 +14,19 @@ export type ProductionStep =
 export type BoxLocation =
   | 'ESTOQUE'
   | 'ARMARIO_A' | 'ARMARIO_B' | 'ARMARIO_C' | 'ARMARIO_D' | 'ARMARIO_E'
+  | 'ARMARIO_F' | 'ARMARIO_G' | 'ARMARIO_H' | 'ARMARIO_I' | 'ARMARIO_J'
+  | 'ARMARIO_K' | 'ARMARIO_L' | 'ARMARIO_M' | 'ARMARIO_N' | 'ARMARIO_O'
   | 'MONTAGEM_01' | 'MONTAGEM_02'
   | 'SOLDAGEM_01' | 'SOLDAGEM_02' | 'SOLDAGEM_03' | 'SOLDAGEM_04'
   | 'REVISAO_01' | 'REVISAO_02' | 'REVISAO_03' | 'REVISAO_04'
   | 'GRAVACAO_01' | 'GRAVACAO_02' | 'GRAVACAO_03' | 'GRAVACAO_04' | 'GRAVACAO_05' | 'GRAVACAO_06';
 
-export const STOCK_LOCATIONS: BoxLocation[] = ['ESTOQUE', 'ARMARIO_A', 'ARMARIO_B', 'ARMARIO_C', 'ARMARIO_D', 'ARMARIO_E'];
+export const STOCK_LOCATIONS: BoxLocation[] = [
+  'ESTOQUE',
+  'ARMARIO_A', 'ARMARIO_B', 'ARMARIO_C', 'ARMARIO_D', 'ARMARIO_E',
+  'ARMARIO_F', 'ARMARIO_G', 'ARMARIO_H', 'ARMARIO_I', 'ARMARIO_J',
+  'ARMARIO_K', 'ARMARIO_L', 'ARMARIO_M', 'ARMARIO_N', 'ARMARIO_O',
+];
 
 export const box = table('box', {
   id: t.text('id').primaryKey(),

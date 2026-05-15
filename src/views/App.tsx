@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Stock from './pages/Stock';
+import History from './pages/History';
 import Settings from './pages/Settings';
 import Header from './components/Header';
 
@@ -43,10 +44,11 @@ const App = () => {
         />
 
         <div style={{ width: '100%', height: '100%' }}>
-          {abaAtiva === 'dashboard' && <Dashboard />}
-          {abaAtiva === 'estoque'   && <Stock />}
-          {abaAtiva === 'config'    && <Settings />}
-          {abaAtiva === 'producao'  && <h1 style={{ textAlign: 'center', margin: 0, paddingTop: '20px' }}>🔨 Linha de Produção</h1>}
+          {abaAtiva === 'dashboard'  && <Dashboard />}
+          {abaAtiva === 'estoque'    && <Stock />}
+          {abaAtiva === 'historico'  && <History />}
+          {abaAtiva === 'config'     && <Settings />}
+          {abaAtiva === 'producao'   && <h1 style={{ textAlign: 'center', margin: 0, paddingTop: '20px' }}>🔨 Linha de Produção</h1>}
         </div>
 
       </main>

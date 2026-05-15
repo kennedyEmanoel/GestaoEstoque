@@ -1,4 +1,3 @@
-import React from 'react';
 
 interface SidebarProps {
   abaAtiva: string;
@@ -50,11 +49,11 @@ const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
       </div>
 
       <nav style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <button style={getStyle('dashboard')} onClick={() => setAbaAtiva('dashboard')}>📊 Dashboard</button>
-        <button style={getStyle('estoque')} onClick={() => setAbaAtiva('estoque')}>📦 Estoque</button>
-        <button style={getStyle('producao')} onClick={() => setAbaAtiva('producao')}>🔨 Produção</button>
-        <button style={getStyle('Mov')} onClick={() => setAbaAtiva('Mov')}>🔄 Movimentações</button>
-        <button style={getStyle('config')} onClick={() => setAbaAtiva('config')}>⚙️ Configurações</button>
+        <button style={getStyle('dashboard')}  onClick={() => { setAbaAtiva('dashboard');  setSidebarAberta(false); }}>📊 Dashboard</button>
+        <button style={getStyle('estoque')}    onClick={() => { setAbaAtiva('estoque');    setSidebarAberta(false); }}>📦 Estoque</button>
+        <button style={getStyle('producao')}   onClick={() => { setAbaAtiva('producao');   setSidebarAberta(false); }}>🔨 Produção</button>
+        <button style={getStyle('historico')}  onClick={() => { setAbaAtiva('historico');  setSidebarAberta(false); }}>📋 Histórico</button>
+        <button style={getStyle('config')}     onClick={() => { setAbaAtiva('config');     setSidebarAberta(false); }}>⚙️ Configurações</button>
       </nav>
     </aside>
   );

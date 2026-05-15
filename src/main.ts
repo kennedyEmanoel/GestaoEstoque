@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu } from 'electron'; // <-- Adicionado o Menu aq
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { setupBoxControllers } from './main/controllers/boxController';
+import { setupDashboardControllers } from './main/controllers/dashboardController';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -22,6 +23,7 @@ const createWindow = () => {
   });
 
   setupBoxControllers();
+  setupDashboardControllers();
 
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
@@ -31,7 +33,9 @@ const createWindow = () => {
     );
   }
 
-  mainWindow.webContents.openDevTools();
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
 };
 
 app.on('ready', createWindow);

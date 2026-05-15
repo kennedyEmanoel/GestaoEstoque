@@ -1,7 +1,8 @@
 import type { BoxLocation, BoxPrefix, ProductionStep } from '../main/models/schema/box';
 import type { HistoryOperation } from '../main/models/schema/history';
+import type { DashboardData, DashboardFilters } from '../main/services/dashboardService';
 
-export type { BoxLocation, BoxPrefix, ProductionStep, HistoryOperation };
+export type { BoxLocation, BoxPrefix, ProductionStep, HistoryOperation, DashboardData, DashboardFilters };
 
 export interface NewBoxInput {
   id: string;
@@ -42,8 +43,10 @@ declare global {
       createBox: (data: NewBoxInput) => Promise<ApiResponse>;
       getBox: (id: string) => Promise<ApiResponse>;
       scanBox: (data: ScanInput) => Promise<ApiResponse>;
+      finishStep: (boxId: string, operator: string) => Promise<ApiResponse>;
       getBoxHistory: (boxId: string) => Promise<ApiResponse>;
       getStockSummary: () => Promise<ApiResponse<StockSummary>>;
+      getDashboard: (filters: DashboardFilters) => Promise<ApiResponse<DashboardData>>;
     };
   }
 }
