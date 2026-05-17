@@ -1,75 +1,86 @@
 import { ipcMain } from 'electron';
 import {
   createBox,
+  createBatchBoxes,
+  getNextBatchIds,
   getBoxById,
-  scanBox,
+  startStep,
   finishStep,
   getBoxHistory,
   getRecentHistory,
   getStockSummary,
 } from '../services/boxServices';
-import type { NewBoxInput, ScanInput } from '../../shared/types';
+import type { NewBoxInput, StartStepInput, BatchBoxInput } from '../../shared/types';
 
 export const setupBoxControllers = () => {
 
-  ipcMain.handle('create-box', async (_event, data: NewBoxInput) => {
+  ipcMain.handle('create-box', (_event, data: NewBoxInput) => {
     try {
-      const newBox = await createBox(data);
-      return { success: true, data: newBox };
+      return { success: true, data: createBox(data) };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('get-box', async (_event, id: string) => {
+  ipcMain.handle('get-box', (_event, id: string) => {
     try {
-      const found = await getBoxById(id);
-      return { success: true, data: found };
+      return { success: true, data: getBoxById(id) };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('scan-box', async (_event, data: ScanInput) => {
+  ipcMain.handle('start-step', (_event, data: StartStepInput) => {
     try {
-      const result = await scanBox(data);
-      return { success: true, data: result };
+      return { success: true, data: startStep(data) };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('finish-step', async (_event, boxId: string, operator: string) => {
+  ipcMain.handle('finish-step', (_event, boxId: string, operator: string, stockLocation?: string) => {
     try {
-      const result = await finishStep(boxId, operator);
-      return { success: true, data: result };
+      return { success: true, data: finishStep(boxId, operator, stockLocation as any) };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('get-box-history', async (_event, boxId: string) => {
+  ipcMain.handle('get-box-history', (_event, boxId: string) => {
     try {
-      const logs = await getBoxHistory(boxId);
-      return { success: true, data: logs };
+      return { success: true, data: getBoxHistory(boxId) };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('get-recent-history', async (_event, limit?: number) => {
+  ipcMain.handle('get-next-batch-ids', (_event, prefix: string, count: number) => {
     try {
-      const logs = getRecentHistory(limit);
-      return { success: true, data: logs };
+      return { success: true, data: getNextBatchIds(prefix as any, count) };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
   });
 
-  ipcMain.handle('get-stock-summary', async () => {
+  ipcMain.handle('create-batch-boxes', (_event, data: BatchBoxInput) => {
     try {
-      const summary = await getStockSummary();
-      return { success: true, data: summary };
+      return { success: true, data: createBatchBoxes(data) };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-recent-history', (_event, limit?: number) => {
+    try {
+      return { success: true, data: getRecentHistory(limit) };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-stock-summary', () => {
+    try {
+      return { success: true, data: getStockSummary() };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

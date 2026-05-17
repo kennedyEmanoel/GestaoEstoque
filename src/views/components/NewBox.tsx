@@ -1,4 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+
+const PREFIX_TO_MODEL: Record<string, string> = {
+  'NB2': 'NB2',
+  '4GS': '4G SIMCOM',
+  'LOR': 'LORA',
+  'NBL': 'NB + LORA',
+};
 
 interface NewBoxProps {
   isOpen: boolean;
@@ -10,7 +17,6 @@ const QUICK_AMOUNTS = ['200', '300', '450', '500'];
 const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
   const [formData, setFormData] = useState({
     id: '',
-    model: '',
     amount: '',
     weight: '',
     operator: '',
@@ -19,6 +25,11 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
     volume: '',
     location: 'ESTOQUE',
   });
+
+  const derivedModel = useMemo(() => {
+    const prefix = formData.id.trim().toUpperCase().substring(0, 3);
+    return PREFIX_TO_MODEL[prefix] ?? null;
+  }, [formData.id]);
 
   if (!isOpen) return null;
 
@@ -31,7 +42,7 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
       const response = await (window as any).api.createBox(formData);
       if (response.success) {
         alert('Caixa registrada com sucesso no sistema!');
-        setFormData({ id: '', model: '', amount: '', weight: '', operator: '', step: 'Montagem', description: '', volume: '', location: 'ESTOQUE' });
+        setFormData({ id: '', amount: '', weight: '', operator: '', step: 'Montagem', description: '', volume: '', location: 'ESTOQUE' });
         onClose();
       } else {
         alert('Atenção: ' + response.error);
@@ -98,16 +109,16 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
             </div>
           </div>
 
-          {/* Modelo */}
+          {/* Produto — derivado automaticamente do ID */}
           <div className="col-span-2">
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Modelo do Produto</label>
-            <input
-              type="text"
-              value={formData.model}
-              onChange={(e) => set('model', e.target.value)}
-              placeholder="Ex: Módulo 4G SIMCOM"
-              className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors"
-            />
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Produto</label>
+            <div className={`w-full px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+              derivedModel
+                ? 'bg-blue-50 border-blue-200 text-blue-700'
+                : 'bg-zinc-100 border-zinc-200 text-zinc-400'
+            }`}>
+              {derivedModel ?? 'Será definido pelo código ID'}
+            </div>
           </div>
 
           {/* Quantidade */}

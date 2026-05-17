@@ -7,6 +7,8 @@ import * as schema from './schema';
 const dbPath = path.join(app.getPath('userData'), 'bd_estoque.sqlite');
 const sqlite = new Database(dbPath);
 
+console.log(dbPath);
+
 sqlite.pragma('journal_mode = WAL');
 sqlite.pragma('foreign_keys = ON');
 
@@ -32,6 +34,7 @@ sqlite.exec(`
     end_time       INTEGER,
     time_spent     INTEGER,
     type_operation TEXT NOT NULL,
+    step_status    TEXT NOT NULL DEFAULT 'OPEN',
     step           TEXT NOT NULL,
     location       TEXT,
     lot            TEXT,
@@ -39,5 +42,12 @@ sqlite.exec(`
     operator       TEXT
   );
 `);
+
+// Migração idempotente: adiciona step_status em bancos já existentes
+try {
+  sqlite.exec(`ALTER TABLE history ADD COLUMN step_status TEXT NOT NULL DEFAULT 'OPEN'`);
+} catch {
+  // coluna já existe — ignorar
+}
 
 export const db = drizzle(sqlite, { schema });

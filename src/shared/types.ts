@@ -1,22 +1,31 @@
 import type { BoxLocation, BoxPrefix, ProductionStep } from '../main/models/schema/box';
-import type { HistoryOperation } from '../main/models/schema/history';
+import type { HistoryOperation, StepStatus } from '../main/models/schema/history';
 import type { DashboardData, DashboardFilters } from '../main/services/dashboardService';
 
-export type { BoxLocation, BoxPrefix, ProductionStep, HistoryOperation, DashboardData, DashboardFilters };
+export type { BoxLocation, BoxPrefix, ProductionStep, HistoryOperation, StepStatus, DashboardData, DashboardFilters };
 
 export interface NewBoxInput {
   id: string;
   weight: number;
   amount?: number;
   step: ProductionStep;
-  model: string | null;
   operator: string | null;
   description: string | null;
   volume: string | null;
   location?: BoxLocation;
 }
 
-export interface ScanInput {
+export interface BatchBoxInput {
+  ids: string[];
+  weight: number;
+  amount?: number;
+  step: ProductionStep;
+  operator: string | null;
+  description: string | null;
+  location?: BoxLocation;
+}
+
+export interface StartStepInput {
   boxId: string;
   step: ProductionStep;
   operator: string;
@@ -41,10 +50,13 @@ declare global {
   interface Window {
     api: {
       createBox: (data: NewBoxInput) => Promise<ApiResponse>;
+      getNextBatchIds: (prefix: string, count: number) => Promise<ApiResponse<string[]>>;
+      createBatchBoxes: (data: BatchBoxInput) => Promise<ApiResponse>;
       getBox: (id: string) => Promise<ApiResponse>;
-      scanBox: (data: ScanInput) => Promise<ApiResponse>;
-      finishStep: (boxId: string, operator: string) => Promise<ApiResponse>;
+      startStep: (data: StartStepInput) => Promise<ApiResponse>;
+      finishStep: (boxId: string, operator: string, stockLocation?: string) => Promise<ApiResponse>;
       getBoxHistory: (boxId: string) => Promise<ApiResponse>;
+      getRecentHistory: (limit?: number) => Promise<ApiResponse>;
       getStockSummary: () => Promise<ApiResponse<StockSummary>>;
       getDashboard: (filters: DashboardFilters) => Promise<ApiResponse<DashboardData>>;
     };

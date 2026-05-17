@@ -2,16 +2,23 @@ import { db } from '../models/db';
 import { box, STOCK_LOCATIONS } from '../models/schema/box';
 import type { BoxPrefix, ProductionStep, BoxLocation } from '../models/schema/box';
 import { history } from '../models/schema/history';
-import { eq, isNull, and, desc } from 'drizzle-orm';
-import type { NewBoxInput, ScanInput, StockSummary } from '../../shared/types';
+import { eq, and, or, isNull, desc, like, max } from 'drizzle-orm';
+import type { NewBoxInput, StartStepInput, StockSummary, BatchBoxInput } from '../../shared/types';
+import { calcWorkingSeconds } from '../../shared/workingTime';
 
-// ─── Máquina de Estados ──────────────────────────────────────────────────────
+// ─── Mapeamento de Produto por Prefixo ───────────────────────────────────────
 
 const ID_REGEX = /^(BDJ|NB2|4GS|LOR|NBL)\d{4,}$/;
 
-// Mapa de transições válidas por prefixo.
-// Cada etapa aponta para as etapas que podem vir depois dela.
-// 4GS tem fork após Revisao: pode ir para IMEI ou Firmware em qualquer ordem.
+const PREFIX_TO_MODEL: Partial<Record<BoxPrefix, string>> = {
+  'NB2': 'NB2',
+  '4GS': '4G SIMCOM',
+  'LOR': 'LORA',
+  'NBL': 'NB + LORA',
+};
+
+// ─── Máquina de Estados ──────────────────────────────────────────────────────
+
 type TransitionMap = Partial<Record<ProductionStep, ProductionStep[]>>;
 
 const DEFAULT_TRANSITIONS: TransitionMap = {
@@ -25,9 +32,9 @@ const DEFAULT_TRANSITIONS: TransitionMap = {
 const TRANSITIONS_4GS: TransitionMap = {
   'Montagem':  ['Soldagem'],
   'Soldagem':  ['Revisao'],
-  'Revisao':   ['IMEI', 'Firmware'],   // fork: qualquer um dos dois
-  'IMEI':      ['Firmware', 'Concluida'], // se IMEI primeiro, próximo é Firmware ou Concluida
-  'Firmware':  ['IMEI', 'Concluida'],     // se Firmware primeiro, próximo é IMEI ou Concluida
+  'Revisao':   ['IMEI', 'Firmware'],
+  'IMEI':      ['Firmware', 'Concluida'],
+  'Firmware':  ['IMEI', 'Concluida'],
 };
 
 function getTransitions(boxId: string): TransitionMap {
@@ -56,12 +63,17 @@ export function createBox(data: NewBoxInput) {
   const origin = prefix === 'BDJ' ? 'TRAY' : 'PRODUCTION';
   const firstStep: ProductionStep = 'Montagem';
 
+  const model = PREFIX_TO_MODEL[prefix] ?? null;
+  if (origin === 'PRODUCTION' && !model) {
+    throw new Error(`Prefixo '${prefix}' não possui produto mapeado.`);
+  }
+
   try {
     const [result] = db.insert(box).values({
       id: cleanId,
       weight: data.weight,
       amount: data.amount ?? 500,
-      model: data.model,
+      model,
       operator: data.operator,
       description: data.description,
       volume: data.volume,
@@ -79,6 +91,65 @@ export function createBox(data: NewBoxInput) {
   }
 }
 
+// ─── getNextBatchIds ──────────────────────────────────────────────────────────
+
+export function getNextBatchIds(prefix: BoxPrefix, count: number): string[] {
+  const pattern = `${prefix}%`;
+  const [row] = db
+    .select({ maxId: max(box.id) })
+    .from(box)
+    .where(like(box.id, pattern))
+    .all();
+
+  let next = 1;
+  if (row?.maxId) {
+    const num = parseInt(row.maxId.substring(3), 10);
+    if (!isNaN(num)) next = num + 1;
+  }
+
+  return Array.from({ length: count }, (_, i) =>
+    `${prefix}${String(next + i).padStart(4, '0')}`
+  );
+}
+
+// ─── createBatchBoxes ─────────────────────────────────────────────────────────
+
+export function createBatchBoxes(data: BatchBoxInput) {
+  return db.transaction((tx) => {
+    const results = [];
+    for (const id of data.ids) {
+      const cleanId = id.trim().toUpperCase();
+      if (!ID_REGEX.test(cleanId)) throw new Error(`ID inválido: ${cleanId}`);
+
+      const prefix = cleanId.substring(0, 3) as BoxPrefix;
+      const origin = prefix === 'BDJ' ? 'TRAY' : 'PRODUCTION';
+      const model = PREFIX_TO_MODEL[prefix] ?? null;
+      if (origin === 'PRODUCTION' && !model) throw new Error(`Prefixo '${prefix}' sem produto mapeado.`);
+
+      try {
+        const [row] = tx.insert(box).values({
+          id: cleanId,
+          weight: data.weight,
+          amount: data.amount ?? 500,
+          model,
+          operator: data.operator,
+          description: data.description,
+          volume: null,
+          origin,
+          step: data.step ?? 'Montagem',
+          location: data.location ?? 'ESTOQUE',
+        }).returning().all();
+        results.push(row);
+      } catch (error: any) {
+        if (error.message.includes('UNIQUE constraint failed'))
+          throw new Error(`O código ${cleanId} já existe.`);
+        throw new Error(`Erro ao criar caixa ${cleanId}: ${error.message}`);
+      }
+    }
+    return results;
+  });
+}
+
 // ─── getBoxById ──────────────────────────────────────────────────────────────
 
 export function getBoxById(id: string) {
@@ -91,9 +162,9 @@ export function getBoxById(id: string) {
   return result;
 }
 
-// ─── scanBox (bipagem) ───────────────────────────────────────────────────────
+// ─── startStep (iniciar etapa) ───────────────────────────────────────────────
 
-export function scanBox(data: ScanInput) {
+export function startStep(data: StartStepInput) {
   const cleanId = data.boxId.trim().toUpperCase();
 
   const [currentBox] = db.select().from(box).where(eq(box.id, cleanId)).limit(1).all();
@@ -106,40 +177,40 @@ export function scanBox(data: ScanInput) {
     throw new Error(`A caixa '${cleanId}' já está concluída.`);
   }
 
-  if (!isValidTransition(cleanId, currentStep, data.step)) {
-    const nextSteps = getNextSteps(cleanId, currentStep);
+  // Bloqueio: impede iniciar nova etapa se a anterior ainda está OPEN ou sem endTime
+  const [openRecord] = db
+    .select()
+    .from(history)
+    .where(and(
+      eq(history.boxId, cleanId),
+      or(eq(history.stepStatus, 'OPEN'), isNull(history.endTime))
+    ))
+    .limit(1)
+    .all();
+
+  if (openRecord) {
     throw new Error(
-      `Transição inválida: '${currentStep}' → '${data.step}'. ` +
-      `Próximas etapas válidas: ${nextSteps.length ? nextSteps.join(' ou ') : 'nenhuma'}.`
+      `Bloqueado: a etapa "${openRecord.step}" ainda está em andamento para "${cleanId}". ` +
+      `Finalize essa etapa antes de iniciar "${data.step}".`
+    );
+  }
+
+  if (!isValidTransition(cleanId, currentStep, data.step)) {
+    const next = getNextSteps(cleanId, currentStep);
+    throw new Error(
+      `Transição inválida: "${currentStep}" → "${data.step}". ` +
+      `Próximas etapas válidas: ${next.length ? next.join(' ou ') : 'nenhuma'}.`
     );
   }
 
   const now = new Date();
 
-  const result = db.transaction((tx) => {
-    const [openRecord] = tx
-      .select()
-      .from(history)
-      .where(and(eq(history.boxId, cleanId), isNull(history.endTime)))
-      .limit(1)
-      .all();
-
-    if (openRecord) {
-      const startMs = openRecord.startTime instanceof Date
-        ? openRecord.startTime.getTime()
-        : (openRecord.startTime as number) * 1000;
-      const timeSpent = Math.floor((now.getTime() - startMs) / 1000);
-
-      tx.update(history)
-        .set({ endTime: now, timeSpent })
-        .where(eq(history.id, openRecord.id))
-        .run();
-    }
-
+  return db.transaction((tx) => {
     const [newRecord] = tx.insert(history).values({
       boxId: cleanId,
       startTime: now,
       typeOperation: 'SCAN_START',
+      stepStatus: 'OPEN',
       step: data.step,
       location: data.location,
       operator: data.operator,
@@ -154,46 +225,61 @@ export function scanBox(data: ScanInput) {
     return {
       box: { ...currentBox, step: data.step, location: data.location, operator: data.operator },
       historyRecord: newRecord,
-      closedPreviousRecord: openRecord ? openRecord.id : null,
     };
   });
-
-  return result;
 }
 
 // ─── finishStep ──────────────────────────────────────────────────────────────
 
-/**
- * Fecha manualmente o registro aberto de uma caixa, calculando o timeSpent.
- */
-export function finishStep(boxId: string, operator: string) {
+export function finishStep(boxId: string, operator: string, stockLocation: BoxLocation = 'ESTOQUE') {
   const cleanId = boxId.trim().toUpperCase();
   const now = new Date();
 
   const [openRecord] = db
     .select()
     .from(history)
-    .where(and(eq(history.boxId, cleanId), isNull(history.endTime)))
+    .where(and(
+      eq(history.boxId, cleanId),
+      or(eq(history.stepStatus, 'OPEN'), isNull(history.endTime))
+    ))
     .limit(1)
     .all();
 
   if (!openRecord) {
-    throw new Error(`Nenhuma etapa aberta encontrada para a caixa '${cleanId}'.`);
+    throw new Error(
+      `Nenhuma etapa em andamento para a caixa "${cleanId}". Inicie uma etapa antes de finalizar.`
+    );
   }
 
   const startMs = openRecord.startTime instanceof Date
     ? openRecord.startTime.getTime()
     : (openRecord.startTime as number) * 1000;
-  const timeSpent = Math.floor((now.getTime() - startMs) / 1000);
 
-  const [closed] = db
-    .update(history)
-    .set({ endTime: now, timeSpent, operator })
-    .where(eq(history.id, openRecord.id))
-    .returning()
-    .all();
+  // Tempo líquido respeitando calendário industrial
+  const timeSpent = calcWorkingSeconds(startMs, now.getTime());
 
-  return closed;
+  return db.transaction((tx) => {
+    const [closed] = tx
+      .update(history)
+      .set({
+        endTime: now,
+        timeSpent,
+        stepStatus: 'CLOSED',
+        typeOperation: 'SCAN_END',
+        operator,
+      })
+      .where(eq(history.id, openRecord.id))
+      .returning()
+      .all();
+
+    // Roteamento automático: caixa volta ao estoque após finalizar
+    tx.update(box)
+      .set({ location: stockLocation, operator })
+      .where(eq(box.id, cleanId))
+      .run();
+
+    return { closed, stockLocation };
+  });
 }
 
 // ─── getBoxHistory ────────────────────────────────────────────────────────────
@@ -214,7 +300,6 @@ export function getRecentHistory(limit = 100) {
   return db
     .select()
     .from(history)
-    .where(eq(history.typeOperation, 'SCAN_START'))
     .orderBy(desc(history.startTime))
     .limit(limit)
     .all();

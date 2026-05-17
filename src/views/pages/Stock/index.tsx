@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import NewBox from '../../components/NewBox';
+import BatchBox from '../../components/BatchBox';
 import type { ProductionStep, BoxLocation } from '../../../shared/types';
 import { calcWorkingSeconds, formatWorkingTime } from '../../../shared/workingTime';
 
@@ -74,6 +75,12 @@ const LOCATIONS_BY_STEP: Partial<Record<ProductionStep, BoxLocation[]>> = {
                 'ARMARIO_K', 'ARMARIO_L', 'ARMARIO_M', 'ARMARIO_N', 'ARMARIO_O'],
 };
 
+const STOCK_LOCATIONS: BoxLocation[] = [
+  'ESTOQUE', 'ARMARIO_A', 'ARMARIO_B', 'ARMARIO_C', 'ARMARIO_D', 'ARMARIO_E',
+  'ARMARIO_F', 'ARMARIO_G', 'ARMARIO_H', 'ARMARIO_I', 'ARMARIO_J',
+  'ARMARIO_K', 'ARMARIO_L', 'ARMARIO_M', 'ARMARIO_N', 'ARMARIO_O',
+];
+
 const STEP_COLORS: Partial<Record<ProductionStep, { dot: string; badge: string; icon: string }>> = {
   'Montagem':  { dot: 'bg-violet-500', badge: 'bg-violet-50 text-violet-700 ring-violet-200', icon: 'bg-violet-100 text-violet-600' },
   'Soldagem':  { dot: 'bg-orange-500', badge: 'bg-orange-50 text-orange-700 ring-orange-200', icon: 'bg-orange-100 text-orange-600' },
@@ -87,26 +94,31 @@ const STEP_COLORS: Partial<Record<ProductionStep, { dot: string; badge: string; 
 
 interface ScanModalProps {
   caixa: any;
+  mode: 'start' | 'finish';
+  openRecord: any | null;
   onClose: () => void;
   onSuccess: (updated: any) => void;
 }
 
-const ScanModal = ({ caixa, onClose, onSuccess }: ScanModalProps) => {
-  const nextSteps = getNextSteps(caixa.id, caixa.step as ProductionStep);
+const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess }: ScanModalProps) => {
+  const isFinish = mode === 'finish';
+
+  const nextSteps = !isFinish ? getNextSteps(caixa.id, caixa.step as ProductionStep) : [];
   const [selectedStep, setSelectedStep] = useState<ProductionStep>(nextSteps[0]);
   const [location, setLocation] = useState<BoxLocation>(
-    (LOCATIONS_BY_STEP[nextSteps[0]] ?? [])[0] ?? 'ESTOQUE'
+    isFinish ? 'ESTOQUE' : (LOCATIONS_BY_STEP[nextSteps[0]] ?? [])[0] ?? 'ESTOQUE'
   );
   const [operator, setOperator] = useState('');
   const [description, setDescription] = useState('');
   const [salvando, setSalvando] = useState(false);
 
-  const availableLocations: BoxLocation[] = LOCATIONS_BY_STEP[selectedStep] ?? ['ESTOQUE'];
+  const availableLocations: BoxLocation[] = isFinish
+    ? STOCK_LOCATIONS
+    : LOCATIONS_BY_STEP[selectedStep] ?? ['ESTOQUE'];
 
   const handleStepChange = (step: ProductionStep) => {
     setSelectedStep(step);
-    const locs = LOCATIONS_BY_STEP[step] ?? ['ESTOQUE'];
-    setLocation(locs[0]);
+    setLocation((LOCATIONS_BY_STEP[step] ?? ['ESTOQUE'])[0]);
   };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -114,17 +126,26 @@ const ScanModal = ({ caixa, onClose, onSuccess }: ScanModalProps) => {
     if (!operator.trim()) return;
     setSalvando(true);
     try {
-      const response = await (window as any).api.scanBox({
-        boxId: caixa.id,
-        step: selectedStep,
-        operator: operator.trim(),
-        location,
-        description: description.trim() || undefined,
-      });
-      if (response.success) {
-        onSuccess(response.data.box);
+      if (isFinish) {
+        const res = await (window as any).api.finishStep(caixa.id, operator.trim(), location);
+        if (res.success) {
+          onSuccess({ ...caixa, location: res.data.stockLocation });
+        } else {
+          alert('Erro ao finalizar: ' + res.error);
+        }
       } else {
-        alert('Erro: ' + response.error);
+        const res = await (window as any).api.startStep({
+          boxId: caixa.id,
+          step: selectedStep,
+          operator: operator.trim(),
+          location,
+          description: description.trim() || undefined,
+        });
+        if (res.success) {
+          onSuccess(res.data.box);
+        } else {
+          alert('Erro ao iniciar: ' + res.error);
+        }
       }
     } catch {
       alert('Erro de comunicação com o sistema.');
@@ -133,6 +154,8 @@ const ScanModal = ({ caixa, onClose, onSuccess }: ScanModalProps) => {
     }
   };
 
+  const stepColors = STEP_COLORS[caixa.step as ProductionStep];
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
@@ -140,7 +163,9 @@ const ScanModal = ({ caixa, onClose, onSuccess }: ScanModalProps) => {
         {/* Header */}
         <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
           <div>
-            <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-0.5">Atualizar Etapa</p>
+            <p className="text-xs font-semibold uppercase tracking-widest mb-0.5 text-zinc-400">
+              {isFinish ? 'Finalizar Etapa' : 'Iniciar Próxima Etapa'}
+            </p>
             <p className="text-base font-bold text-zinc-900 font-mono">{caixa.id}</p>
           </div>
           <button
@@ -153,7 +178,8 @@ const ScanModal = ({ caixa, onClose, onSuccess }: ScanModalProps) => {
           </button>
         </div>
 
-        {nextSteps.length === 0 ? (
+        {/* Sem próximas etapas (concluída) */}
+        {!isFinish && nextSteps.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-emerald-600">
@@ -162,40 +188,56 @@ const ScanModal = ({ caixa, onClose, onSuccess }: ScanModalProps) => {
             </div>
             <p className="text-sm font-semibold text-zinc-800">Produção concluída</p>
             <p className="text-xs text-zinc-400 mt-1">Não há etapas disponíveis para esta caixa.</p>
-            <button
-              onClick={onClose}
-              className="mt-6 px-5 py-2.5 text-sm font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg transition-colors"
-            >
+            <button onClick={onClose} className="mt-6 px-5 py-2.5 text-sm font-semibold bg-zinc-100 hover:bg-zinc-200 text-zinc-700 rounded-lg transition-colors">
               Fechar
             </button>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
 
-            {/* Próxima Etapa */}
-            <div>
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Próxima Etapa</label>
-              <div className="flex gap-2">
-                {nextSteps.map((step) => (
-                  <button
-                    key={step}
-                    type="button"
-                    onClick={() => handleStepChange(step)}
-                    className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-all ${
-                      selectedStep === step
-                        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                        : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-800'
-                    }`}
-                  >
-                    {step}
-                  </button>
-                ))}
+            {/* MODO FINALIZAR: etapa em andamento (somente leitura) */}
+            {isFinish && (
+              <div className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${
+                stepColors
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-zinc-50 border-zinc-200'
+              }`}>
+                <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${stepColors?.dot ?? 'bg-zinc-400'}`} />
+                <div>
+                  <p className="text-xs font-semibold text-amber-700 uppercase tracking-widest">Em andamento</p>
+                  <p className="text-sm font-bold text-amber-900">{openRecord?.step ?? caixa.step}</p>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* MODO INICIAR: seletor de próxima etapa */}
+            {!isFinish && (
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Próxima Etapa</label>
+                <div className="flex gap-2">
+                  {nextSteps.map((step) => (
+                    <button
+                      key={step}
+                      type="button"
+                      onClick={() => handleStepChange(step)}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-all ${
+                        selectedStep === step
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+                          : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-800'
+                      }`}
+                    >
+                      {step}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Localização */}
             <div>
-              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Localização</label>
+              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                {isFinish ? 'Destino no Estoque' : 'Localização'}
+              </label>
               <select
                 required
                 value={location}
@@ -247,9 +289,15 @@ const ScanModal = ({ caixa, onClose, onSuccess }: ScanModalProps) => {
               <button
                 type="submit"
                 disabled={salvando}
-                className="flex-[2] py-2.5 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded-lg transition-colors"
+                className={`flex-[2] py-2.5 text-sm font-bold text-white rounded-lg transition-colors disabled:opacity-40 ${
+                  isFinish
+                    ? 'bg-emerald-600 hover:bg-emerald-700'
+                    : 'bg-blue-600 hover:bg-blue-700'
+                }`}
               >
-                {salvando ? 'Salvando...' : 'Confirmar'}
+                {salvando
+                  ? (isFinish ? 'Finalizando...' : 'Iniciando...')
+                  : (isFinish ? 'Finalizar Etapa' : 'Iniciar Etapa')}
               </button>
             </div>
 
@@ -278,7 +326,9 @@ const Inventory = () => {
   const [barcode, setBarcode] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const [modalAberto, setModalAberto] = useState(false);
+  const [batchModalAberto, setBatchModalAberto] = useState(false);
   const [scanModalAberto, setScanModalAberto] = useState(false);
+  const [modalMode, setModalMode] = useState<'start' | 'finish'>('start');
   const [caixa, setCaixa] = useState<any>(null);
   const [boxHistory, setBoxHistory] = useState<any[]>([]);
   const [buscando, setBuscando] = useState(false);
@@ -286,6 +336,13 @@ const Inventory = () => {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // Detecta etapa em andamento pelo registro mais recente sem endTime
+  // Usa findLast (do fim) porque o histórico é ordenado por startTime ASC
+  const openRecord = [...boxHistory].reverse().find(
+    (r: any) => r.endTime === null || r.endTime === undefined
+  ) ?? null;
+  const hasOpenStep = openRecord !== null;
 
   const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -304,7 +361,7 @@ const Inventory = () => {
         alert(boxRes.error || 'Caixa não encontrada!');
       }
       if (histRes.success) {
-        setBoxHistory(histRes.data.filter((r: any) => r.typeOperation === 'SCAN_START'));
+        setBoxHistory(histRes.data);
       }
     } catch {
       alert('Erro de comunicação com o banco de dados.');
@@ -315,19 +372,33 @@ const Inventory = () => {
     }
   };
 
-  const stepColors = caixa ? (STEP_COLORS[caixa.step as ProductionStep] ?? { dot: 'bg-zinc-400', badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200', icon: 'bg-zinc-100 text-zinc-500' }) : null;
+  const openModal = (mode: 'start' | 'finish') => {
+    setModalMode(mode);
+    setScanModalAberto(true);
+  };
+
+  const stepColors = caixa
+    ? (STEP_COLORS[caixa.step as ProductionStep] ?? { dot: 'bg-zinc-400', badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200', icon: 'bg-zinc-100 text-zinc-500' })
+    : null;
 
   return (
     <div className="h-full overflow-y-auto bg-zinc-50">
       <NewBox isOpen={modalAberto} onClose={() => setModalAberto(false)} />
+      <BatchBox isOpen={batchModalAberto} onClose={() => setBatchModalAberto(false)} />
 
       {scanModalAberto && caixa && (
         <ScanModal
           caixa={caixa}
+          mode={modalMode}
+          openRecord={openRecord}
           onClose={() => setScanModalAberto(false)}
           onSuccess={(updated) => {
             setCaixa(updated);
             setScanModalAberto(false);
+            // Recarrega histórico para refletir o novo status
+            (window as any).api.getBoxHistory(updated.id).then((res: any) => {
+              if (res.success) setBoxHistory(res.data);
+            });
           }}
         />
       )}
@@ -349,15 +420,26 @@ const Inventory = () => {
             <h1 className="text-2xl font-bold text-zinc-900">Estoque & Produção</h1>
             <p className="text-sm text-zinc-500 mt-1">Consulte e movimente caixas por código de barras</p>
           </div>
-          <button
-            onClick={() => setModalAberto(true)}
-            className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Nova Caixa
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setBatchModalAberto(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
+              </svg>
+              Lote
+            </button>
+            <button
+              onClick={() => setModalAberto(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              Nova Caixa
+            </button>
+          </div>
         </div>
 
         {/* ── Barra de busca ── */}
@@ -414,7 +496,6 @@ const Inventory = () => {
           </div>
         )}
 
-        {/* ── Detalhes da caixa ── */}
         {caixa && stepColors && (
           <div className="flex flex-col gap-4">
 
@@ -434,6 +515,12 @@ const Inventory = () => {
                         <span className={`w-1.5 h-1.5 rounded-full ${stepColors.dot}`} />
                         {caixa.step}
                       </span>
+                      {hasOpenStep && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 ring-1 ring-amber-200">
+                          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                          Em andamento
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-zinc-500">{caixa.model || 'Modelo não informado'}</p>
                   </div>
@@ -498,7 +585,7 @@ const Inventory = () => {
               </div>
             )}
 
-            {/* Ação */}
+            {/* ── Botão de ação principal ── */}
             {caixa.step === 'Concluida' ? (
               <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4">
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
@@ -511,12 +598,25 @@ const Inventory = () => {
                   <p className="text-xs text-emerald-600 mt-0.5">Esta caixa completou todas as etapas de produção.</p>
                 </div>
               </div>
+            ) : hasOpenStep ? (
+              <button
+                onClick={() => openModal('finish')}
+                className="w-full py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                </svg>
+                Finalizar Etapa — {openRecord?.step}
+              </button>
             ) : (
               <button
-                onClick={() => setScanModalAberto(true)}
-                className="w-full py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm"
+                onClick={() => openModal('start')}
+                className="w-full py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
               >
-                Atualizar Etapa
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                </svg>
+                Iniciar Próxima Etapa
               </button>
             )}
 
@@ -532,18 +632,21 @@ const Inventory = () => {
                   <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Etapa</p>
                   <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Início</p>
                   <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Operador</p>
-                  <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Duração</p>
+                  <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest">Duração Líquida</p>
                 </div>
                 <div className="divide-y divide-zinc-100">
                   {boxHistory.map((record: any, index: number) => {
                     const c = STEP_COLORS[record.step as ProductionStep] ?? { dot: 'bg-zinc-400', badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200' };
                     const startMs = typeof record.startTime === 'number' ? record.startTime * 1000 : record.startTime?.getTime?.() ?? 0;
-                    const endMs   = record.endTime ? (typeof record.endTime === 'number' ? record.endTime * 1000 : record.endTime.getTime()) : null;
+                    const endMs   = record.endTime
+                      ? (typeof record.endTime === 'number' ? record.endTime * 1000 : record.endTime.getTime())
+                      : null;
+                    const isOpen  = record.stepStatus === 'OPEN' || record.endTime === null;
                     return (
                       <div key={record.id} className="px-5 py-3 grid grid-cols-[24px_1fr_1fr_1fr_auto] gap-x-4 items-center">
                         <span className="text-xs font-bold text-zinc-300 text-right">{index + 1}</span>
                         <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ring-1 w-fit ${c.badge}`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
+                          <span className={`w-1.5 h-1.5 rounded-full ${c.dot} ${isOpen ? 'animate-pulse' : ''}`} />
                           {record.step}
                         </span>
                         <span className="text-xs text-zinc-500">
@@ -552,12 +655,20 @@ const Inventory = () => {
                         <span className="text-xs text-zinc-500">
                           {record.operator || <span className="text-zinc-300">—</span>}
                         </span>
-                        {endMs ? (
-                          <span className="text-xs font-semibold text-zinc-500">
+                        {isOpen ? (
+                          <span className="text-xs font-semibold text-amber-600 bg-amber-50 ring-1 ring-amber-200 px-2 py-0.5 rounded-full whitespace-nowrap">
+                            Em andamento
+                          </span>
+                        ) : record.timeSpent != null ? (
+                          <span className="text-xs font-semibold text-zinc-500 whitespace-nowrap">
+                            {formatWorkingTime(record.timeSpent)}
+                          </span>
+                        ) : endMs ? (
+                          <span className="text-xs font-semibold text-zinc-500 whitespace-nowrap">
                             {formatWorkingTime(calcWorkingSeconds(startMs, endMs))}
                           </span>
                         ) : (
-                          <span className="text-xs font-semibold text-amber-600 bg-amber-50 ring-1 ring-amber-200 px-2 py-0.5 rounded-full">Em andamento</span>
+                          <span className="text-xs text-zinc-300">—</span>
                         )}
                       </div>
                     );

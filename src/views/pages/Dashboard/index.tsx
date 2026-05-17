@@ -49,21 +49,14 @@ function KpiCard({ label, value, sub, iconClass, icon }: {
   );
 }
 
-function FunnelBar({ step, units, maxUnits, isBottleneck }: {
-  step: string; units: number; maxUnits: number; isBottleneck: boolean;
+function FunnelBar({ step, units, maxUnits }: {
+  step: string; units: number; maxUnits: number;
 }) {
   const pct = maxUnits > 0 ? Math.round((units / maxUnits) * 100) : 0;
   const c = STEP_COLOR[step] ?? STEP_COLOR.Concluida;
 
   return (
-    <div className={`relative bg-white rounded-xl border p-4 transition-all ${
-      isBottleneck ? 'border-red-300 shadow-sm shadow-red-100' : 'border-zinc-200'
-    }`}>
-      {isBottleneck && (
-        <span className="absolute top-3 right-3 text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-50 text-red-600 ring-1 ring-red-200">
-          Gargalo
-        </span>
-      )}
+    <div className="relative bg-white rounded-xl border border-zinc-200 p-4 transition-all">
       <div className="flex items-center gap-2 mb-3">
         <span className={`w-2 h-2 rounded-full ${c.dot}`} />
         <span className="text-sm font-bold text-zinc-700">{step}</span>
@@ -80,9 +73,8 @@ function FunnelBar({ step, units, maxUnits, isBottleneck }: {
   );
 }
 
-function StepTable({ funnel, bottleneck }: {
+function StepTable({ funnel }: {
   funnel: DashboardData['funnel'];
-  bottleneck: ProductionStep | null;
 }) {
   return (
     <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
@@ -102,18 +94,14 @@ function StepTable({ funnel, bottleneck }: {
         <tbody>
           {funnel.map((row) => {
             const c = STEP_COLOR[row.step] ?? STEP_COLOR.Concluida;
-            const isBottleneck = row.step === bottleneck;
             return (
-              <tr key={row.step} className={`border-b border-zinc-50 last:border-0 ${isBottleneck ? 'bg-red-50/40' : 'hover:bg-zinc-50/50'}`}>
+              <tr key={row.step} className="border-b border-zinc-50 last:border-0 hover:bg-zinc-50/50">
                 <td className="px-5 py-3.5">
                   <div className="flex items-center gap-2">
                     <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ${c.badge}`}>
                       <span className={`w-1.5 h-1.5 rounded-full ${c.dot}`} />
                       {row.step}
                     </span>
-                    {isBottleneck && (
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 ring-1 ring-red-200">gargalo</span>
-                    )}
                   </div>
                 </td>
                 <td className="px-5 py-3.5 text-right font-bold text-zinc-800">{row.totalUnits.toLocaleString('pt-BR')}</td>
@@ -327,14 +315,13 @@ export default function Dashboard() {
                     step={f.step}
                     units={f.totalUnits}
                     maxUnits={maxUnits}
-                    isBottleneck={f.step === data.bottleneckStep}
                   />
                 ))}
               </div>
             </div>
 
             {/* ── Tabela de detalhamento ── */}
-            <StepTable funnel={data.funnel} bottleneck={data.bottleneckStep} />
+            <StepTable funnel={data.funnel} />
 
             {/* ── Inventário por produto ── */}
             <ModelTable byModel={data.byModel} />
