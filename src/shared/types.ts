@@ -20,8 +20,10 @@ export interface BatchBoxInput {
   weight: number;
   amount?: number;
   step: ProductionStep;
+  model?: string;
   operator: string | null;
   description: string | null;
+  volume?: string | null;
   location?: BoxLocation;
 }
 
@@ -59,6 +61,8 @@ declare global {
       getRecentHistory: (limit?: number) => Promise<ApiResponse>;
       getStockSummary: () => Promise<ApiResponse<StockSummary>>;
       getDashboard: (filters: DashboardFilters) => Promise<ApiResponse<DashboardData>>;
+      deleteBox: (id: string) => Promise<ApiResponse>;
+      deleteManyBoxes: (prefix: string) => Promise<ApiResponse<number>>;
     };
   }
 }

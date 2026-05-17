@@ -338,6 +338,10 @@ const Inventory = () => {
   const [caixa, setCaixa] = useState<any>(null);
   const [boxHistory, setBoxHistory] = useState<any[]>([]);
   const [buscando, setBuscando] = useState(false);
+  const [excluindo, setExcluindo] = useState(false);
+  const [deleteModalAberto, setDeleteModalAberto] = useState(false);
+  const [deletePrefixSelecionado, setDeletePrefixSelecionado] = useState<string>('ALL');
+  const [excluindoLote, setExcluindoLote] = useState(false);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -378,6 +382,48 @@ const Inventory = () => {
     }
   };
 
+  const handleDelete = async () => {
+    if (!caixa) return;
+    if (!window.confirm(`Excluir permanentemente "${caixa.id}" e todo o seu histórico?`)) return;
+    setExcluindo(true);
+    try {
+      const res = await (window as any).api.deleteBox(caixa.id);
+      if (res.success) {
+        setCaixa(null);
+        setBoxHistory([]);
+      } else {
+        alert('Erro ao excluir: ' + res.error);
+      }
+    } catch {
+      alert('Erro de comunicação com o sistema.');
+    } finally {
+      setExcluindo(false);
+    }
+  };
+
+  const handleDeleteLote = async () => {
+    const label = deletePrefixSelecionado === 'ALL'
+      ? 'TODOS os produtos e todo o histórico'
+      : `todas as caixas do prefixo ${deletePrefixSelecionado} e seu histórico`;
+    if (!window.confirm(`Confirma exclusão permanente de ${label}?\n\nEssa ação não pode ser desfeita.`)) return;
+    setExcluindoLote(true);
+    try {
+      const res = await (window as any).api.deleteManyBoxes(deletePrefixSelecionado);
+      if (res.success) {
+        alert(`${res.data} caixa(s) excluída(s) com sucesso.`);
+        setDeleteModalAberto(false);
+        setCaixa(null);
+        setBoxHistory([]);
+      } else {
+        alert('Erro: ' + res.error);
+      }
+    } catch {
+      alert('Erro de comunicação com o sistema.');
+    } finally {
+      setExcluindoLote(false);
+    }
+  };
+
   const openModal = (mode: 'start' | 'finish') => {
     setModalMode(mode);
     setScanModalAberto(true);
@@ -387,10 +433,88 @@ const Inventory = () => {
     ? (STEP_COLORS[caixa.step as ProductionStep] ?? { dot: 'bg-zinc-400', badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200', icon: 'bg-zinc-100 text-zinc-500' })
     : null;
 
+  const DELETE_PREFIX_OPTIONS = [
+    { value: 'ALL', label: 'Todos os produtos' },
+    { value: 'NB2', label: 'NB2' },
+    { value: '4GS', label: '4G SIMCOM' },
+    { value: 'LOR', label: 'LORA' },
+    { value: 'NBL', label: 'NB + LORA' },
+    { value: 'BDJ', label: 'BDJ (Bandejas)' },
+    { value: 'INS', label: 'INS (Insumos)' },
+  ];
+
   return (
     <div className="h-full overflow-y-auto bg-zinc-50">
       <NewBox isOpen={modalAberto} onClose={() => setModalAberto(false)} />
       <BatchBox isOpen={batchModalAberto} onClose={() => setBatchModalAberto(false)} />
+
+      {/* Modal exclusão em massa */}
+      {deleteModalAberto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-red-400 uppercase tracking-widest mb-0.5">Ação destrutiva</p>
+                <h2 className="text-base font-bold text-zinc-900">Excluir Caixas em Massa</h2>
+              </div>
+              <button
+                onClick={() => setDeleteModalAberto(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-6 py-5 flex flex-col gap-4">
+              <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
+                </svg>
+                <p className="text-xs text-red-700">Todas as caixas e o histórico completo do grupo selecionado serão apagados permanentemente.</p>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Grupo a excluir</label>
+                <div className="flex flex-col gap-1.5">
+                  {DELETE_PREFIX_OPTIONS.map((opt) => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setDeletePrefixSelecionado(opt.value)}
+                      className={`w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-left border transition-colors ${
+                        deletePrefixSelecionado === opt.value
+                          ? opt.value === 'ALL'
+                            ? 'bg-red-600 text-white border-red-600'
+                            : 'bg-zinc-800 text-white border-zinc-800'
+                          : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setDeleteModalAberto(false)}
+                  className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteLote}
+                  disabled={excluindoLote}
+                  className="flex-[2] py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 rounded-lg transition-colors"
+                >
+                  {excluindoLote ? 'Excluindo...' : 'Confirmar Exclusão'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {scanModalAberto && caixa && (
         <ScanModal
@@ -427,6 +551,15 @@ const Inventory = () => {
             <p className="text-sm text-zinc-500 mt-1">Consulte e movimente caixas por código de barras</p>
           </div>
           <div className="flex gap-2">
+            <button
+              onClick={() => setDeleteModalAberto(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-colors"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+              </svg>
+              Excluir Lote
+            </button>
             <button
               onClick={() => setBatchModalAberto(true)}
               className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors"
@@ -531,11 +664,23 @@ const Inventory = () => {
                     <p className="text-sm text-zinc-500">{caixa.model || 'Modelo não informado'}</p>
                   </div>
                 </div>
-                <div className="text-right flex-shrink-0">
-                  <p className="text-xs text-zinc-400">Entrada</p>
-                  <p className="text-sm font-medium text-zinc-600">
-                    {caixa.date ? new Date(caixa.date).toLocaleDateString('pt-BR') : '—'}
-                  </p>
+                <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                  <div className="text-right">
+                    <p className="text-xs text-zinc-400">Entrada</p>
+                    <p className="text-sm font-medium text-zinc-600">
+                      {caixa.date ? new Date(caixa.date).toLocaleDateString('pt-BR') : '—'}
+                    </p>
+                  </div>
+                  <button
+                    onClick={handleDelete}
+                    disabled={excluindo}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors disabled:opacity-40"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+                    </svg>
+                    {excluindo ? 'Excluindo...' : 'Excluir'}
+                  </button>
                 </div>
               </div>
             </div>
@@ -602,6 +747,18 @@ const Inventory = () => {
                 <div>
                   <p className="text-sm font-bold text-emerald-800">Produção concluída</p>
                   <p className="text-xs text-emerald-600 mt-0.5">Esta caixa completou todas as etapas de produção.</p>
+                </div>
+              </div>
+            ) : caixa.id.startsWith('INS') && caixa.step === 'Separacao' && !hasOpenStep && !caixa.model ? (
+              <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl px-5 py-4">
+                <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-teal-600">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-sm font-bold text-teal-800">Caixa disponível — aguardando novo lote</p>
+                  <p className="text-xs text-teal-600 mt-0.5">Registre um novo insumo nesta caixa para reutilizá-la.</p>
                 </div>
               </div>
             ) : hasOpenStep ? (

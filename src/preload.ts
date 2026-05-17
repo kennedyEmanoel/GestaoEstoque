@@ -12,4 +12,6 @@ contextBridge.exposeInMainWorld('api', {
   getRecentHistory: (limit?: number) => ipcRenderer.invoke('get-recent-history', limit),
   getStockSummary: () => ipcRenderer.invoke('get-stock-summary'),
   getDashboard: (filters: any) => ipcRenderer.invoke('get-dashboard', filters),
+  deleteBox: (id: string) => ipcRenderer.invoke('delete-box', id),
+  deleteManyBoxes: (prefix: string) => ipcRenderer.invoke('delete-many-boxes', prefix),
 });

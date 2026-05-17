@@ -94,19 +94,6 @@ export function createBox(data: NewBoxInput) {
         location: data.location ?? 'ESTOQUE',
       }).returning().all();
 
-      if (isInsumo) {
-        tx.insert(history).values({
-          boxId: cleanId,
-          startTime: new Date(),
-          typeOperation: 'SCAN_START',
-          stepStatus: 'OPEN',
-          step: 'Separacao',
-          location: data.location ?? 'ESTOQUE',
-          operator: data.operator ?? null,
-          description: data.description ?? null,
-        }).run();
-      }
-
       return result;
     } catch (error: any) {
       if (error.message.includes('UNIQUE constraint failed')) {
@@ -148,21 +135,25 @@ export function createBatchBoxes(data: BatchBoxInput) {
       if (!ID_REGEX.test(cleanId)) throw new Error(`ID inválido: ${cleanId}`);
 
       const prefix = cleanId.substring(0, 3) as BoxPrefix;
+      const isInsumo = prefix === 'INS';
       const origin = prefix === 'BDJ' ? 'TRAY' : 'PRODUCTION';
-      const model = PREFIX_TO_MODEL[prefix] ?? null;
+      const model = isInsumo ? (data.model ?? null) : (PREFIX_TO_MODEL[prefix] ?? null);
       if (origin === 'PRODUCTION' && !model) throw new Error(`Prefixo '${prefix}' sem produto mapeado.`);
+
+      const amount = isInsumo ? 450 : (data.amount ?? 500);
+      const step: ProductionStep = isInsumo ? 'Separacao' : (data.step ?? 'Montagem');
 
       try {
         const [row] = tx.insert(box).values({
           id: cleanId,
-          weight: data.weight,
-          amount: data.amount ?? 500,
+          weight: data.weight ?? 0,
+          amount,
           model,
           operator: data.operator,
           description: data.description,
-          volume: null,
+          volume: data.volume ?? null,
           origin,
-          step: data.step ?? 'Montagem',
+          step,
           location: data.location ?? 'ESTOQUE',
         }).returning().all();
         results.push(row);
@@ -173,6 +164,47 @@ export function createBatchBoxes(data: BatchBoxInput) {
       }
     }
     return results;
+  });
+}
+
+// ─── deleteBox ───────────────────────────────────────────────────────────────
+
+export function deleteBox(id: string) {
+  const cleanId = id.trim().toUpperCase();
+  return db.transaction((tx) => {
+    tx.delete(history).where(eq(history.boxId, cleanId)).run();
+    const result = tx.delete(box).where(eq(box.id, cleanId)).run();
+    if (result.changes === 0) {
+      throw new Error(`Caixa '${cleanId}' não encontrada.`);
+    }
+  });
+}
+
+// ─── deleteManyBoxes ─────────────────────────────────────────────────────────
+
+export function deleteManyBoxes(prefix: BoxPrefix | 'ALL') {
+  return db.transaction((tx) => {
+    if (prefix === 'ALL') {
+      tx.delete(history).run();
+      const result = tx.delete(box).run();
+      return result.changes;
+    }
+
+    const pattern = `${prefix}%`;
+    const targets = tx
+      .select({ id: box.id })
+      .from(box)
+      .where(like(box.id, pattern))
+      .all()
+      .map((r) => r.id);
+
+    if (targets.length === 0) return 0;
+
+    for (const id of targets) {
+      tx.delete(history).where(eq(history.boxId, id)).run();
+    }
+    const result = tx.delete(box).where(like(box.id, pattern)).run();
+    return result.changes;
   });
 }
 
@@ -284,6 +316,9 @@ export function finishStep(boxId: string, operator: string, stockLocation: BoxLo
   // Tempo líquido respeitando calendário industrial
   const timeSpent = calcWorkingSeconds(startMs, now.getTime());
 
+  const isInsumoFinishingMontagem =
+    cleanId.startsWith('INS') && openRecord.step === 'Montagem';
+
   return db.transaction((tx) => {
     const [closed] = tx
       .update(history)
@@ -298,7 +333,24 @@ export function finishStep(boxId: string, operator: string, stockLocation: BoxLo
       .returning()
       .all();
 
-    // Roteamento automático: caixa volta ao estoque após finalizar
+    if (isInsumoFinishingMontagem) {
+      // Caixa reutilizável: reset do conteúdo, volta a Separacao no estoque
+      tx.update(box)
+        .set({
+          step: 'Separacao',
+          location: 'ESTOQUE',
+          model: null,
+          volume: null,
+          amount: 0,
+          operator: null,
+          description: null,
+        })
+        .where(eq(box.id, cleanId))
+        .run();
+      return { closed, stockLocation: 'ESTOQUE' as BoxLocation };
+    }
+
+    // Roteamento padrão: caixa volta ao estoque após finalizar
     tx.update(box)
       .set({ location: stockLocation, operator })
       .where(eq(box.id, cleanId))

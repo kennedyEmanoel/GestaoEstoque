@@ -4,6 +4,8 @@ import {
   createBatchBoxes,
   getNextBatchIds,
   getBoxById,
+  deleteBox,
+  deleteManyBoxes,
   startStep,
   finishStep,
   getBoxHistory,
@@ -81,6 +83,24 @@ export const setupBoxControllers = () => {
   ipcMain.handle('get-stock-summary', () => {
     try {
       return { success: true, data: getStockSummary() };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('delete-box', (_event, id: string) => {
+    try {
+      deleteBox(id);
+      return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('delete-many-boxes', (_event, prefix: string) => {
+    try {
+      const count = deleteManyBoxes(prefix as any);
+      return { success: true, data: count };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

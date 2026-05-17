@@ -15,6 +15,13 @@ interface NewBoxProps {
 
 const QUICK_AMOUNTS = ['200', '300', '450', '500'];
 
+const INS_PRODUCT_OPTIONS = [
+  { value: 'NB2',      label: 'NB2' },
+  { value: '4G SIMCOM',label: '4G SIMCOM' },
+  { value: 'LORA',     label: 'LORA' },
+  { value: 'NB + LORA',label: 'NB + LORA' },
+];
+
 const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
   const [formData, setFormData] = useState({
     id: '',
@@ -26,6 +33,7 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
     volume: '',
     location: 'ESTOQUE',
   });
+  const [insProduct, setInsProduct] = useState(INS_PRODUCT_OPTIONS[0].value);
 
   const derivedPrefix = useMemo(() => formData.id.trim().toUpperCase().substring(0, 3), [formData.id]);
   const derivedModel = useMemo(() => PREFIX_TO_MODEL[derivedPrefix] ?? null, [derivedPrefix]);
@@ -40,7 +48,7 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
     e.preventDefault();
     try {
       const payload = isInsumo
-        ? { ...formData, amount: '450', step: 'Separacao', weight: formData.weight || '0' }
+        ? { ...formData, amount: '450', step: 'Separacao', weight: formData.weight || '0', model: insProduct }
         : formData;
       const response = await (window as any).api.createBox(payload);
       if (response.success) {
@@ -112,16 +120,37 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
             </div>
           </div>
 
-          {/* Produto — derivado automaticamente do ID */}
+          {/* Produto */}
           <div className="col-span-2">
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Produto</label>
-            <div className={`w-full px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
-              derivedModel
-                ? 'bg-blue-50 border-blue-200 text-blue-700'
-                : 'bg-zinc-100 border-zinc-200 text-zinc-400'
-            }`}>
-              {derivedModel ?? 'Será definido pelo código ID'}
-            </div>
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+              Produto {isInsumo && <span className="normal-case font-semibold text-teal-600">(obrigatório)</span>}
+            </label>
+            {isInsumo ? (
+              <div className="flex gap-2">
+                {INS_PRODUCT_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setInsProduct(opt.value)}
+                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors ${
+                      insProduct === opt.value
+                        ? 'bg-teal-600 text-white border-teal-600'
+                        : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className={`w-full px-3 py-2.5 rounded-lg border text-sm font-semibold transition-colors ${
+                derivedModel
+                  ? 'bg-blue-50 border-blue-200 text-blue-700'
+                  : 'bg-zinc-100 border-zinc-200 text-zinc-400'
+              }`}>
+                {derivedModel ?? 'Será definido pelo código ID'}
+              </div>
+            )}
           </div>
 
           {/* Quantidade */}
