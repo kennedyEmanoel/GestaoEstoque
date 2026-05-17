@@ -35,6 +35,13 @@ export interface StartStepInput {
   description?: string;
 }
 
+export interface ExpedicaoInput {
+  boxId: string;
+  operator: string;
+  filialDestino: string;
+  description?: string;
+}
+
 export interface StockSummary {
   inStock: number;
   inProduction: number;
@@ -63,6 +70,7 @@ declare global {
       getDashboard: (filters: DashboardFilters) => Promise<ApiResponse<DashboardData>>;
       deleteBox: (id: string) => Promise<ApiResponse>;
       deleteManyBoxes: (prefix: string) => Promise<ApiResponse<number>>;
+      expedicao: (data: ExpedicaoInput) => Promise<ApiResponse>;
     };
   }
 }

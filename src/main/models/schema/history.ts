@@ -2,7 +2,7 @@ import { sqliteTable as table } from "drizzle-orm/sqlite-core";
 import * as t from "drizzle-orm/sqlite-core";
 import { box } from "./box";
 
-export type HistoryOperation = 'SCAN_START' | 'SCAN_END' | 'TRANSFER';
+export type HistoryOperation = 'SCAN_START' | 'SCAN_END' | 'TRANSFER' | 'EXPEDICAO';
 export type StepStatus = 'OPEN' | 'CLOSED';
 
 export const history = table("history", {

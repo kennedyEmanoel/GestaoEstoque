@@ -3,7 +3,7 @@ import { box, STOCK_LOCATIONS } from '../models/schema/box';
 import type { BoxPrefix, ProductionStep, BoxLocation } from '../models/schema/box';
 import { history } from '../models/schema/history';
 import { eq, and, or, isNull, desc, like, max } from 'drizzle-orm';
-import type { NewBoxInput, StartStepInput, StockSummary, BatchBoxInput } from '../../shared/types';
+import type { NewBoxInput, StartStepInput, StockSummary, BatchBoxInput, ExpedicaoInput } from '../../shared/types';
 import { calcWorkingSeconds } from '../../shared/workingTime';
 
 // ─── Mapeamento de Produto por Prefixo ───────────────────────────────────────
@@ -357,6 +357,69 @@ export function finishStep(boxId: string, operator: string, stockLocation: BoxLo
       .run();
 
     return { closed, stockLocation };
+  });
+}
+
+// ─── expedicao ────────────────────────────────────────────────────────────────
+
+export function expedicao(data: ExpedicaoInput) {
+  const cleanId = data.boxId.trim().toUpperCase();
+  const filial = data.filialDestino.trim();
+
+  if (!filial) throw new Error('Filial de destino é obrigatória.');
+
+  const [currentBox] = db.select().from(box).where(eq(box.id, cleanId)).limit(1).all();
+  if (!currentBox) throw new Error(`Caixa '${cleanId}' não encontrada.`);
+
+  // Valida que não há etapa em aberto
+  const [openRecord] = db
+    .select()
+    .from(history)
+    .where(and(
+      eq(history.boxId, cleanId),
+      or(eq(history.stepStatus, 'OPEN'), isNull(history.endTime))
+    ))
+    .limit(1)
+    .all();
+
+  if (openRecord) {
+    throw new Error(
+      `Bloqueado: a etapa "${openRecord.step}" ainda está em andamento para "${cleanId}". ` +
+      `Finalize e devolva ao estoque antes de expedir.`
+    );
+  }
+
+  // Valida que está no estoque (não em produção)
+  const loc = currentBox.location ?? 'ESTOQUE';
+  if (!STOCK_LOCATIONS.includes(loc as BoxLocation)) {
+    throw new Error(
+      `Bloqueado: a caixa "${cleanId}" está em "${loc}", não no estoque. ` +
+      `Devolva ao estoque antes de expedir.`
+    );
+  }
+
+  const now = new Date();
+
+  return db.transaction((tx) => {
+    tx.insert(history).values({
+      boxId: cleanId,
+      startTime: now,
+      endTime: now,
+      timeSpent: 0,
+      typeOperation: 'EXPEDICAO',
+      stepStatus: 'CLOSED',
+      step: 'Expedicao',
+      location: filial,
+      operator: data.operator,
+      description: data.description ?? null,
+    }).run();
+
+    tx.update(box)
+      .set({ location: filial, operator: data.operator })
+      .where(eq(box.id, cleanId))
+      .run();
+
+    return { boxId: cleanId, filialDestino: filial };
   });
 }
 

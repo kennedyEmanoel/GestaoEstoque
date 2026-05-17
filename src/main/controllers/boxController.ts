@@ -8,6 +8,7 @@ import {
   deleteManyBoxes,
   startStep,
   finishStep,
+  expedicao,
   getBoxHistory,
   getRecentHistory,
   getStockSummary,
@@ -92,6 +93,14 @@ export const setupBoxControllers = () => {
     try {
       deleteBox(id);
       return { success: true };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('expedicao', (_event, data: any) => {
+    try {
+      return { success: true, data: expedicao(data) };
     } catch (error: any) {
       return { success: false, error: error.message };
     }

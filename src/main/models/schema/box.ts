@@ -36,7 +36,7 @@ export const box = table('box', {
   step: t.text('step').$type<ProductionStep>().notNull(),
   volume: t.text('volume'),
   origin: t.text('origin').$type<'PRODUCTION' | 'TRAY'>().default('PRODUCTION'),
-  location: t.text('location').$type<BoxLocation>().default('ESTOQUE'),
+  location: t.text('location').default('ESTOQUE'),
   weight: t.real('weight').notNull(),
   operator: t.text('operator'),
   description: t.text('description'),

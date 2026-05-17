@@ -342,6 +342,11 @@ const Inventory = () => {
   const [deleteModalAberto, setDeleteModalAberto] = useState(false);
   const [deletePrefixSelecionado, setDeletePrefixSelecionado] = useState<string>('ALL');
   const [excluindoLote, setExcluindoLote] = useState(false);
+  const [expedicaoModalAberto, setExpedicaoModalAberto] = useState(false);
+  const [expFilial, setExpFilial] = useState('');
+  const [expOperador, setExpOperador] = useState('');
+  const [expDescricao, setExpDescricao] = useState('');
+  const [expedindo, setExpedindo] = useState(false);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -401,6 +406,34 @@ const Inventory = () => {
     }
   };
 
+  const handleExpedicao = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!caixa) return;
+    setExpedindo(true);
+    try {
+      const res = await (window as any).api.expedicao({
+        boxId: caixa.id,
+        operator: expOperador.trim(),
+        filialDestino: expFilial.trim(),
+        description: expDescricao.trim() || undefined,
+      });
+      if (res.success) {
+        setCaixa((prev: any) => ({ ...prev, location: expFilial.trim(), operator: expOperador.trim() }));
+        setExpedicaoModalAberto(false);
+        setExpFilial(''); setExpOperador(''); setExpDescricao('');
+        (window as any).api.getBoxHistory(caixa.id).then((r: any) => {
+          if (r.success) setBoxHistory(r.data);
+        });
+      } else {
+        alert('Erro: ' + res.error);
+      }
+    } catch {
+      alert('Erro de comunicação com o sistema.');
+    } finally {
+      setExpedindo(false);
+    }
+  };
+
   const handleDeleteLote = async () => {
     const label = deletePrefixSelecionado === 'ALL'
       ? 'TODOS os produtos e todo o histórico'
@@ -447,6 +480,83 @@ const Inventory = () => {
     <div className="h-full overflow-y-auto bg-zinc-50">
       <NewBox isOpen={modalAberto} onClose={() => setModalAberto(false)} />
       <BatchBox isOpen={batchModalAberto} onClose={() => setBatchModalAberto(false)} />
+
+      {/* Modal Expedição */}
+      {expedicaoModalAberto && caixa && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-indigo-400 uppercase tracking-widest mb-0.5">Movimentação</p>
+                <h2 className="text-base font-bold text-zinc-900">Expedir Caixa</h2>
+                <p className="text-xs text-zinc-400 mt-0.5 font-mono">{caixa.id}</p>
+              </div>
+              <button
+                onClick={() => setExpedicaoModalAberto(false)}
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleExpedicao} className="px-6 py-5 flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                  Filial de Destino <span className="normal-case font-semibold text-indigo-500">(obrigatório)</span>
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={expFilial}
+                  onChange={(e) => setExpFilial(e.target.value)}
+                  placeholder="Ex: Filial São Paulo"
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-indigo-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Operador</label>
+                <input
+                  required
+                  type="text"
+                  value={expOperador}
+                  onChange={(e) => setExpOperador(e.target.value)}
+                  placeholder="Nome do operador"
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-indigo-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                  Observação <span className="normal-case font-normal text-zinc-300">(opcional)</span>
+                </label>
+                <textarea
+                  value={expDescricao}
+                  onChange={(e) => setExpDescricao(e.target.value)}
+                  placeholder="Ex: Envio urgente, NF 12345..."
+                  rows={2}
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-indigo-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors resize-none"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={() => setExpedicaoModalAberto(false)}
+                  className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={expedindo}
+                  className="flex-[2] py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 rounded-lg transition-colors shadow-sm"
+                >
+                  {expedindo ? 'Expedindo...' : 'Confirmar Expedição'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal exclusão em massa */}
       {deleteModalAberto && (
@@ -772,15 +882,26 @@ const Inventory = () => {
                 Finalizar Etapa — {openRecord?.step}
               </button>
             ) : (
-              <button
-                onClick={() => openModal('start')}
-                className="w-full py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
-                </svg>
-                Iniciar Próxima Etapa
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => openModal('start')}
+                  className="w-full py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
+                  </svg>
+                  Iniciar Próxima Etapa
+                </button>
+                <button
+                  onClick={() => setExpedicaoModalAberto(true)}
+                  className="w-full py-2.5 text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
+                  </svg>
+                  Expedir para Filial
+                </button>
+              </div>
             )}
 
             {/* Histórico de etapas */}
