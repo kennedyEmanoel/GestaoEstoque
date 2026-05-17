@@ -1,9 +1,10 @@
 import { sqliteTable as table } from 'drizzle-orm/sqlite-core';
 import * as t from "drizzle-orm/sqlite-core";
 
-export type BoxPrefix = 'BDJ' | 'NB2' | '4GS' | 'LOR' | 'NBL';
+export type BoxPrefix = 'BDJ' | 'NB2' | '4GS' | 'LOR' | 'NBL' | 'INS';
 
 export type ProductionStep =
+  | 'Separacao'
   | 'Montagem'
   | 'Soldagem'
   | 'Revisao'

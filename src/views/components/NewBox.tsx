@@ -5,6 +5,7 @@ const PREFIX_TO_MODEL: Record<string, string> = {
   '4GS': '4G SIMCOM',
   'LOR': 'LORA',
   'NBL': 'NB + LORA',
+  'INS': 'Insumo',
 };
 
 interface NewBoxProps {
@@ -26,10 +27,9 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
     location: 'ESTOQUE',
   });
 
-  const derivedModel = useMemo(() => {
-    const prefix = formData.id.trim().toUpperCase().substring(0, 3);
-    return PREFIX_TO_MODEL[prefix] ?? null;
-  }, [formData.id]);
+  const derivedPrefix = useMemo(() => formData.id.trim().toUpperCase().substring(0, 3), [formData.id]);
+  const derivedModel = useMemo(() => PREFIX_TO_MODEL[derivedPrefix] ?? null, [derivedPrefix]);
+  const isInsumo = derivedPrefix === 'INS';
 
   if (!isOpen) return null;
 
@@ -39,7 +39,10 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const response = await (window as any).api.createBox(formData);
+      const payload = isInsumo
+        ? { ...formData, amount: '450', step: 'Separacao', weight: formData.weight || '0' }
+        : formData;
+      const response = await (window as any).api.createBox(payload);
       if (response.success) {
         alert('Caixa registrada com sucesso no sistema!');
         setFormData({ id: '', amount: '', weight: '', operator: '', step: 'Montagem', description: '', volume: '', location: 'ESTOQUE' });
@@ -61,7 +64,7 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
           <div>
             <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-0.5">Nova Entrada</p>
             <h2 className="text-base font-bold text-zinc-900">Registrar Nova Caixa</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">BDJ (Bandeja) · NB2 / 4GS (Produto)</p>
+            <p className="text-xs text-zinc-400 mt-0.5">BDJ (Bandeja) · NB2 / 4GS (Produto) · INS (Insumo)</p>
           </div>
           <button
             onClick={onClose}
@@ -126,38 +129,48 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
             <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
               Quantidade
             </label>
-            <div className="flex gap-1.5 mb-2">
-              {QUICK_AMOUNTS.map((qty) => (
-                <button
-                  key={qty}
-                  type="button"
-                  onClick={() => set('amount', qty)}
-                  className={`flex-1 py-1 text-[11px] font-bold rounded-md border transition-colors ${
-                    formData.amount === qty
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
-                  }`}
-                >
-                  {qty}
-                </button>
-              ))}
-            </div>
-            <input
-              required
-              type="number"
-              value={formData.amount}
-              onChange={(e) => set('amount', e.target.value)}
-              placeholder="0"
-              className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-sm font-bold text-zinc-700 transition-colors"
-            />
+            {isInsumo ? (
+              <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm font-bold text-amber-700">
+                450 unidades (fixo para Insumo)
+              </div>
+            ) : (
+              <>
+                <div className="flex gap-1.5 mb-2">
+                  {QUICK_AMOUNTS.map((qty) => (
+                    <button
+                      key={qty}
+                      type="button"
+                      onClick={() => set('amount', qty)}
+                      className={`flex-1 py-1 text-[11px] font-bold rounded-md border transition-colors ${
+                        formData.amount === qty
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : 'bg-white text-blue-600 border-blue-200 hover:bg-blue-50'
+                      }`}
+                    >
+                      {qty}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  required
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) => set('amount', e.target.value)}
+                  placeholder="0"
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-sm font-bold text-zinc-700 transition-colors"
+                />
+              </>
+            )}
           </div>
 
           {/* Peso */}
           <div>
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Peso (kg)</label>
-            <div className="h-8 mb-2" />
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+              Peso (kg) {isInsumo && <span className="normal-case font-normal text-zinc-300">(opcional)</span>}
+            </label>
+            {!isInsumo && <div className="h-8 mb-2" />}
             <input
-              required
+              required={!isInsumo}
               type="number"
               step="0.01"
               value={formData.weight}
@@ -183,18 +196,24 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
           {/* Etapa */}
           <div>
             <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Etapa Atual</label>
-            <select
-              value={formData.step}
-              onChange={(e) => set('step', e.target.value)}
-              className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-sm font-semibold text-zinc-700 transition-colors cursor-pointer"
-            >
-              <option value="Montagem">Montagem</option>
-              <option value="Soldagem">Soldagem</option>
-              <option value="Revisao">Revisão</option>
-              <option value="Firmware">Firmware</option>
-              <option value="IMEI">IMEI</option>
-              <option value="Concluida">Concluída</option>
-            </select>
+            {isInsumo ? (
+              <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm font-semibold text-amber-700">
+                Separação (fixo para Insumo)
+              </div>
+            ) : (
+              <select
+                value={formData.step}
+                onChange={(e) => set('step', e.target.value)}
+                className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-sm font-semibold text-zinc-700 transition-colors cursor-pointer"
+              >
+                <option value="Montagem">Montagem</option>
+                <option value="Soldagem">Soldagem</option>
+                <option value="Revisao">Revisão</option>
+                <option value="Firmware">Firmware</option>
+                <option value="IMEI">IMEI</option>
+                <option value="Concluida">Concluída</option>
+              </select>
+            )}
           </div>
 
           {/* Observações */}

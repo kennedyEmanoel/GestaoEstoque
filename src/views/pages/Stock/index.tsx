@@ -22,9 +22,14 @@ const TRANSITIONS_4GS: Partial<Record<ProductionStep, ProductionStep[]>> = {
   'Firmware':  ['IMEI', 'Concluida'],
 };
 
+const TRANSITIONS_INS: Partial<Record<ProductionStep, ProductionStep[]>> = {
+  'Separacao': ['Montagem'],
+};
+
 function getNextSteps(boxId: string, currentStep: ProductionStep): ProductionStep[] {
-  const map = boxId.startsWith('4GS') ? TRANSITIONS_4GS : DEFAULT_TRANSITIONS;
-  return map[currentStep] ?? [];
+  if (boxId.startsWith('4GS')) return TRANSITIONS_4GS[currentStep] ?? [];
+  if (boxId.startsWith('INS')) return TRANSITIONS_INS[currentStep] ?? [];
+  return DEFAULT_TRANSITIONS[currentStep] ?? [];
 }
 
 // ─── Localizações ─────────────────────────────────────────────────────────────
@@ -82,6 +87,7 @@ const STOCK_LOCATIONS: BoxLocation[] = [
 ];
 
 const STEP_COLORS: Partial<Record<ProductionStep, { dot: string; badge: string; icon: string }>> = {
+  'Separacao': { dot: 'bg-teal-500',   badge: 'bg-teal-50 text-teal-700 ring-teal-200',       icon: 'bg-teal-100 text-teal-600'   },
   'Montagem':  { dot: 'bg-violet-500', badge: 'bg-violet-50 text-violet-700 ring-violet-200', icon: 'bg-violet-100 text-violet-600' },
   'Soldagem':  { dot: 'bg-orange-500', badge: 'bg-orange-50 text-orange-700 ring-orange-200', icon: 'bg-orange-100 text-orange-600' },
   'Revisao':   { dot: 'bg-yellow-500', badge: 'bg-yellow-50 text-yellow-700 ring-yellow-200', icon: 'bg-yellow-100 text-yellow-600' },

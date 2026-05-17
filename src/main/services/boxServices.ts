@@ -8,13 +8,14 @@ import { calcWorkingSeconds } from '../../shared/workingTime';
 
 // ─── Mapeamento de Produto por Prefixo ───────────────────────────────────────
 
-const ID_REGEX = /^(BDJ|NB2|4GS|LOR|NBL)\d{4,}$/;
+const ID_REGEX = /^(BDJ|NB2|4GS|LOR|NBL|INS)\d{4,}$/;
 
 const PREFIX_TO_MODEL: Partial<Record<BoxPrefix, string>> = {
   'NB2': 'NB2',
   '4GS': '4G SIMCOM',
   'LOR': 'LORA',
   'NBL': 'NB + LORA',
+  'INS': 'Insumo',
 };
 
 // ─── Máquina de Estados ──────────────────────────────────────────────────────
@@ -37,9 +38,16 @@ const TRANSITIONS_4GS: TransitionMap = {
   'Firmware':  ['IMEI', 'Concluida'],
 };
 
+// INS só pode avançar para Montagem
+const TRANSITIONS_INS: TransitionMap = {
+  'Separacao': ['Montagem'],
+};
+
 function getTransitions(boxId: string): TransitionMap {
   const prefix = boxId.substring(0, 3) as BoxPrefix;
-  return prefix === '4GS' ? TRANSITIONS_4GS : DEFAULT_TRANSITIONS;
+  if (prefix === '4GS') return TRANSITIONS_4GS;
+  if (prefix === 'INS') return TRANSITIONS_INS;
+  return DEFAULT_TRANSITIONS;
 }
 
 function getNextSteps(boxId: string, currentStep: ProductionStep): ProductionStep[] {
@@ -56,39 +64,57 @@ export function createBox(data: NewBoxInput) {
   const cleanId = data.id.trim().toUpperCase();
 
   if (!ID_REGEX.test(cleanId)) {
-    throw new Error('ID inválido. Use prefixos BDJ, NB2, 4GS, LOR ou NBL.');
+    throw new Error('ID inválido. Use prefixos BDJ, NB2, 4GS, LOR, NBL ou INS.');
   }
 
   const prefix = cleanId.substring(0, 3) as BoxPrefix;
+  const isInsumo = prefix === 'INS';
   const origin = prefix === 'BDJ' ? 'TRAY' : 'PRODUCTION';
-  const firstStep: ProductionStep = 'Montagem';
+  const firstStep: ProductionStep = isInsumo ? 'Separacao' : 'Montagem';
 
   const model = PREFIX_TO_MODEL[prefix] ?? null;
   if (origin === 'PRODUCTION' && !model) {
     throw new Error(`Prefixo '${prefix}' não possui produto mapeado.`);
   }
 
-  try {
-    const [result] = db.insert(box).values({
-      id: cleanId,
-      weight: data.weight,
-      amount: data.amount ?? 500,
-      model,
-      operator: data.operator,
-      description: data.description,
-      volume: data.volume,
-      origin,
-      step: data.step ?? firstStep,
-      location: data.location ?? 'ESTOQUE',
-    }).returning().all();
+  const amount = isInsumo ? 450 : (data.amount ?? 500);
 
-    return result;
-  } catch (error: any) {
-    if (error.message.includes('UNIQUE constraint failed')) {
-      throw new Error(`O código ${cleanId} já existe.`);
+  return db.transaction((tx) => {
+    try {
+      const [result] = tx.insert(box).values({
+        id: cleanId,
+        weight: data.weight ?? 0,
+        amount,
+        model,
+        operator: data.operator,
+        description: data.description,
+        volume: data.volume,
+        origin,
+        step: isInsumo ? firstStep : (data.step ?? firstStep),
+        location: data.location ?? 'ESTOQUE',
+      }).returning().all();
+
+      if (isInsumo) {
+        tx.insert(history).values({
+          boxId: cleanId,
+          startTime: new Date(),
+          typeOperation: 'SCAN_START',
+          stepStatus: 'OPEN',
+          step: 'Separacao',
+          location: data.location ?? 'ESTOQUE',
+          operator: data.operator ?? null,
+          description: data.description ?? null,
+        }).run();
+      }
+
+      return result;
+    } catch (error: any) {
+      if (error.message.includes('UNIQUE constraint failed')) {
+        throw new Error(`O código ${cleanId} já existe.`);
+      }
+      throw new Error(`Erro ao criar caixa: ${error.message}`);
     }
-    throw new Error(`Erro ao criar caixa: ${error.message}`);
-  }
+  });
 }
 
 // ─── getNextBatchIds ──────────────────────────────────────────────────────────
