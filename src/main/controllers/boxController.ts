@@ -5,6 +5,7 @@ import {
   scanBox,
   finishStep,
   getBoxHistory,
+  getRecentHistory,
   getStockSummary,
 } from '../services/boxServices';
 import type { NewBoxInput, ScanInput } from '../../shared/types';
@@ -50,6 +51,15 @@ export const setupBoxControllers = () => {
   ipcMain.handle('get-box-history', async (_event, boxId: string) => {
     try {
       const logs = await getBoxHistory(boxId);
+      return { success: true, data: logs };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('get-recent-history', async (_event, limit?: number) => {
+    try {
+      const logs = getRecentHistory(limit);
       return { success: true, data: logs };
     } catch (error: any) {
       return { success: false, error: error.message };

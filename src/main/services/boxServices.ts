@@ -2,7 +2,7 @@ import { db } from '../models/db';
 import { box, STOCK_LOCATIONS } from '../models/schema/box';
 import type { BoxPrefix, ProductionStep, BoxLocation } from '../models/schema/box';
 import { history } from '../models/schema/history';
-import { eq, isNull, and } from 'drizzle-orm';
+import { eq, isNull, and, desc } from 'drizzle-orm';
 import type { NewBoxInput, ScanInput, StockSummary } from '../../shared/types';
 
 // ─── Máquina de Estados ──────────────────────────────────────────────────────
@@ -205,6 +205,18 @@ export function getBoxHistory(boxId: string) {
     .from(history)
     .where(eq(history.boxId, cleanId))
     .orderBy(history.startTime)
+    .all();
+}
+
+// ─── getRecentHistory ─────────────────────────────────────────────────────────
+
+export function getRecentHistory(limit = 100) {
+  return db
+    .select()
+    .from(history)
+    .where(eq(history.typeOperation, 'SCAN_START'))
+    .orderBy(desc(history.startTime))
+    .limit(limit)
     .all();
 }
 

@@ -33,9 +33,6 @@ const createWindow = () => {
     );
   }
 
-  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
-    mainWindow.webContents.openDevTools({ mode: 'detach' });
-  }
 };
 
 app.on('ready', createWindow);

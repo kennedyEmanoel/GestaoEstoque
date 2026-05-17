@@ -6,6 +6,7 @@ contextBridge.exposeInMainWorld('api', {
   scanBox: (data: any) => ipcRenderer.invoke('scan-box', data),
   finishStep: (boxId: string, operator: string) => ipcRenderer.invoke('finish-step', boxId, operator),
   getBoxHistory: (boxId: string) => ipcRenderer.invoke('get-box-history', boxId),
+  getRecentHistory: (limit?: number) => ipcRenderer.invoke('get-recent-history', limit),
   getStockSummary: () => ipcRenderer.invoke('get-stock-summary'),
   getDashboard: (filters: any) => ipcRenderer.invoke('get-dashboard', filters),
 });

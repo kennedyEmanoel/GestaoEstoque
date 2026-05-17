@@ -7,7 +7,7 @@ import Settings from './pages/Settings';
 import Header from './components/Header';
 
 const App = () => {
-  const [abaAtiva, setAbaAtiva] = useState('estoque');
+  const [abaAtiva, setAbaAtiva] = useState('dashboard');
   const [sidebarAberta, setSidebarAberta] = useState(false);
 
   return (
@@ -30,25 +30,26 @@ const App = () => {
         </div>
       )}
 
-      <main style={{ 
-        width: '100vw', 
-        height: '100vh', 
-        padding: 0, 
-        boxSizing: 'border-box'
+      <main style={{
+        width: '100vw',
+        height: '100vh',
+        padding: 0,
+        boxSizing: 'border-box',
+        display: 'flex',
+        flexDirection: 'column',
       }}>
 
-        <Header 
-          abaAtiva={abaAtiva} 
-          sidebarAberta={sidebarAberta} 
-          setSidebarAberta={setSidebarAberta} 
+        <Header
+          abaAtiva={abaAtiva}
+          sidebarAberta={sidebarAberta}
+          setSidebarAberta={setSidebarAberta}
         />
 
-        <div style={{ width: '100%', height: '100%' }}>
-          {abaAtiva === 'dashboard'  && <Dashboard />}
-          {abaAtiva === 'estoque'    && <Stock />}
-          {abaAtiva === 'historico'  && <History />}
-          {abaAtiva === 'config'     && <Settings />}
-          {abaAtiva === 'producao'   && <h1 style={{ textAlign: 'center', margin: 0, paddingTop: '20px' }}>🔨 Linha de Produção</h1>}
+        <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
+          {abaAtiva === 'dashboard'    && <Dashboard />}
+          {abaAtiva === 'movimentacoes' && <Stock />}
+          {abaAtiva === 'historico'    && <History />}
+          {abaAtiva === 'configuracoes' && <Settings />}
         </div>
 
       </main>
