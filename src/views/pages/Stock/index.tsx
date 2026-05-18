@@ -347,6 +347,10 @@ const Inventory = () => {
   const [expOperador, setExpOperador] = useState('');
   const [expDescricao, setExpDescricao] = useState('');
   const [expedindo, setExpedindo] = useState(false);
+  const [bdjModalAberto, setBdjModalAberto] = useState(false);
+  const [bdjCodigo, setBdjCodigo] = useState('');
+  const [bdjOperador, setBdjOperador] = useState('');
+  const [consumindoBdj, setConsumindoBdj] = useState(false);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -403,6 +407,30 @@ const Inventory = () => {
       alert('Erro de comunicação com o sistema.');
     } finally {
       setExcluindo(false);
+    }
+  };
+
+  const handleConsumirBdj = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!caixa) return;
+    setConsumindoBdj(true);
+    try {
+      const res = await (window as any).api.consumirBdj(bdjCodigo.trim().toUpperCase(), caixa.id, bdjOperador.trim());
+      if (res.success) {
+        setCaixa((prev: any) => ({ ...prev, amount: res.data.destino.novoAmount }));
+        setBdjModalAberto(false);
+        setBdjCodigo(''); setBdjOperador('');
+        (window as any).api.getBoxHistory(caixa.id).then((r: any) => {
+          if (r.success) setBoxHistory(r.data);
+        });
+        alert(`Bandeja ${res.data.bdj.id} consumida. +${res.data.bdj.amountConsumed} unidades → total: ${res.data.destino.novoAmount}`);
+      } else {
+        alert('Erro: ' + res.error);
+      }
+    } catch {
+      alert('Erro de comunicação com o sistema.');
+    } finally {
+      setConsumindoBdj(false);
     }
   };
 
@@ -480,6 +508,60 @@ const Inventory = () => {
     <div className="h-full overflow-y-auto bg-zinc-50">
       <NewBox isOpen={modalAberto} onClose={() => setModalAberto(false)} />
       <BatchBox isOpen={batchModalAberto} onClose={() => setBatchModalAberto(false)} />
+
+      {/* Modal Consumir BDJ */}
+      {bdjModalAberto && caixa && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
+            <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
+              <div>
+                <p className="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-0.5">Soldagem</p>
+                <h2 className="text-base font-bold text-zinc-900">Adicionar Bandeja</h2>
+                <p className="text-xs text-zinc-400 mt-0.5 font-mono">{caixa.id} — {caixa.amount ?? 0} un. acumuladas</p>
+              </div>
+              <button onClick={() => setBdjModalAberto(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleConsumirBdj} className="px-6 py-5 flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                  Código da Bandeja <span className="normal-case font-semibold text-orange-500">(obrigatório)</span>
+                </label>
+                <input
+                  required
+                  type="text"
+                  value={bdjCodigo}
+                  onChange={(e) => setBdjCodigo(e.target.value.toUpperCase())}
+                  placeholder="Ex: BDJ0001"
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-orange-400 focus:bg-white outline-none text-sm font-mono text-zinc-700 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Operador</label>
+                <input
+                  required
+                  type="text"
+                  value={bdjOperador}
+                  onChange={(e) => setBdjOperador(e.target.value)}
+                  placeholder="Nome do operador"
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-orange-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors"
+                />
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={() => setBdjModalAberto(false)} className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors">
+                  Cancelar
+                </button>
+                <button type="submit" disabled={consumindoBdj} className="flex-[2] py-2.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-40 rounded-lg transition-colors shadow-sm">
+                  {consumindoBdj ? 'Consumindo...' : 'Confirmar Consumo'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Modal Expedição */}
       {expedicaoModalAberto && caixa && (
@@ -872,15 +954,28 @@ const Inventory = () => {
                 </div>
               </div>
             ) : hasOpenStep ? (
-              <button
-                onClick={() => openModal('finish')}
-                className="w-full py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                </svg>
-                Finalizar Etapa — {openRecord?.step}
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => openModal('finish')}
+                  className="w-full py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+                  </svg>
+                  Finalizar Etapa — {openRecord?.step}
+                </button>
+                {openRecord?.step === 'Soldagem' && (
+                  <button
+                    onClick={() => setBdjModalAberto(true)}
+                    className="w-full py-2.5 text-sm font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl transition-colors flex items-center justify-center gap-2"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Adicionar Bandeja (BDJ)
+                  </button>
+                )}
+              </div>
             ) : (
               <div className="flex flex-col gap-2">
                 <button

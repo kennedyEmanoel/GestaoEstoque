@@ -10,7 +10,8 @@ export type ProductionStep =
   | 'Revisao'
   | 'Firmware'
   | 'IMEI'
-  | 'Concluida';
+  | 'Concluida'
+  | 'Consumida';
 
 export type BoxLocation =
   | 'ESTOQUE'
@@ -40,5 +41,6 @@ export const box = table('box', {
   weight: t.real('weight').notNull(),
   operator: t.text('operator'),
   description: t.text('description'),
-  date: t.integer("date", { mode: "timestamp" }).$defaultFn(() => new Date())
+  date: t.integer("date", { mode: "timestamp" }).$defaultFn(() => new Date()),
+  parentId: t.text('parent_id'),
 });

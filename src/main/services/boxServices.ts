@@ -423,6 +423,76 @@ export function expedicao(data: ExpedicaoInput) {
   });
 }
 
+// ─── consumirBdj ─────────────────────────────────────────────────────────────
+
+export function consumirBdj(bdjId: string, caixaDestinoId: string, operator: string) {
+  const cleanBdj  = bdjId.trim().toUpperCase();
+  const cleanDest = caixaDestinoId.trim().toUpperCase();
+
+  if (!cleanBdj.startsWith('BDJ')) {
+    throw new Error(`"${cleanBdj}" não é uma Bandeja (prefixo BDJ).`);
+  }
+
+  const [bdj] = db.select().from(box).where(eq(box.id, cleanBdj)).limit(1).all();
+  if (!bdj) throw new Error(`Bandeja "${cleanBdj}" não encontrada.`);
+  if (bdj.step === 'Consumida') throw new Error(`Bandeja "${cleanBdj}" já foi consumida.`);
+
+  const [dest] = db.select().from(box).where(eq(box.id, cleanDest)).limit(1).all();
+  if (!dest) throw new Error(`Caixa destino "${cleanDest}" não encontrada.`);
+  if (dest.step !== 'Soldagem') throw new Error(`Caixa "${cleanDest}" não está na etapa de Soldagem.`);
+
+  if (bdj.model && dest.model && bdj.model !== dest.model) {
+    throw new Error(
+      `Modelo incompatível: Bandeja é "${bdj.model}" mas caixa destino é "${dest.model}".`
+    );
+  }
+
+  const [openDest] = db
+    .select()
+    .from(history)
+    .where(and(eq(history.boxId, cleanDest), or(eq(history.stepStatus, 'OPEN'), isNull(history.endTime))))
+    .limit(1)
+    .all();
+
+  if (!openDest) throw new Error(`Caixa "${cleanDest}" não tem etapa de Soldagem em andamento.`);
+
+  const now = new Date();
+
+  return db.transaction((tx) => {
+    // Arquiva a BDJ
+    tx.update(box)
+      .set({ step: 'Consumida', parentId: cleanDest, operator })
+      .where(eq(box.id, cleanBdj))
+      .run();
+
+    // Registra no histórico da BDJ que ela foi consumida pela caixa destino
+    tx.insert(history).values({
+      boxId: cleanBdj,
+      startTime: now,
+      endTime: now,
+      timeSpent: 0,
+      typeOperation: 'CONSUMO_BDJ',
+      stepStatus: 'CLOSED',
+      step: 'Consumida',
+      location: cleanDest,
+      operator,
+      description: `Consumida pela caixa ${cleanDest}`,
+    }).run();
+
+    // Acumula amount na caixa destino
+    const novoAmount = (dest.amount ?? 0) + (bdj.amount ?? 0);
+    tx.update(box)
+      .set({ amount: novoAmount })
+      .where(eq(box.id, cleanDest))
+      .run();
+
+    return {
+      bdj: { id: cleanBdj, amountConsumed: bdj.amount ?? 0 },
+      destino: { id: cleanDest, novoAmount },
+    };
+  });
+}
+
 // ─── getBoxHistory ────────────────────────────────────────────────────────────
 
 export function getBoxHistory(boxId: string) {

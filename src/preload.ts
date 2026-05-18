@@ -15,4 +15,6 @@ contextBridge.exposeInMainWorld('api', {
   expedicao: (data: any) => ipcRenderer.invoke('expedicao', data),
   deleteBox: (id: string) => ipcRenderer.invoke('delete-box', id),
   deleteManyBoxes: (prefix: string) => ipcRenderer.invoke('delete-many-boxes', prefix),
+  consumirBdj: (bdjId: string, caixaDestinoId: string, operator: string) =>
+    ipcRenderer.invoke('consumir-bdj', bdjId, caixaDestinoId, operator),
 });

@@ -42,6 +42,12 @@ export interface ExpedicaoInput {
   description?: string;
 }
 
+export interface ConsumirBdjInput {
+  bdjId: string;
+  caixaDestinoId: string;
+  operator: string;
+}
+
 export interface StockSummary {
   inStock: number;
   inProduction: number;
@@ -71,6 +77,7 @@ declare global {
       deleteBox: (id: string) => Promise<ApiResponse>;
       deleteManyBoxes: (prefix: string) => Promise<ApiResponse<number>>;
       expedicao: (data: ExpedicaoInput) => Promise<ApiResponse>;
+      consumirBdj: (bdjId: string, caixaDestinoId: string, operator: string) => Promise<ApiResponse>;
     };
   }
 }

@@ -43,11 +43,12 @@ sqlite.exec(`
   );
 `);
 
-// Migração idempotente: adiciona step_status em bancos já existentes
 try {
   sqlite.exec(`ALTER TABLE history ADD COLUMN step_status TEXT NOT NULL DEFAULT 'OPEN'`);
-} catch {
-  // coluna já existe — ignorar
-}
+} catch { /* coluna já existe */ }
+
+try {
+  sqlite.exec(`ALTER TABLE box ADD COLUMN parent_id TEXT`);
+} catch { /* coluna já existe */ }
 
 export const db = drizzle(sqlite, { schema });

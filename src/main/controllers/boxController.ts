@@ -12,6 +12,7 @@ import {
   getBoxHistory,
   getRecentHistory,
   getStockSummary,
+  consumirBdj,
 } from '../services/boxServices';
 import type { NewBoxInput, StartStepInput, BatchBoxInput } from '../../shared/types';
 
@@ -110,6 +111,14 @@ export const setupBoxControllers = () => {
     try {
       const count = deleteManyBoxes(prefix as any);
       return { success: true, data: count };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  });
+
+  ipcMain.handle('consumir-bdj', (_event, bdjId: string, caixaDestinoId: string, operator: string) => {
+    try {
+      return { success: true, data: consumirBdj(bdjId, caixaDestinoId, operator) };
     } catch (error: any) {
       return { success: false, error: error.message };
     }
