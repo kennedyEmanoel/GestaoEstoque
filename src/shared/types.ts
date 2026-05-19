@@ -9,10 +9,12 @@ export interface NewBoxInput {
   weight: number;
   amount?: number;
   step: ProductionStep;
+  model?: string | null;
   operator: string | null;
   description: string | null;
   volume: string | null;
   location?: BoxLocation;
+  isInsumo?: boolean;
 }
 
 export interface BatchBoxInput {
@@ -20,11 +22,12 @@ export interface BatchBoxInput {
   weight: number;
   amount?: number;
   step: ProductionStep;
-  model?: string;
+  model?: string | null;
   operator: string | null;
   description: string | null;
   volume?: string | null;
   location?: BoxLocation;
+  isInsumo?: boolean;
 }
 
 export interface StartStepInput {

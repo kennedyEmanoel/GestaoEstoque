@@ -8,14 +8,13 @@ import { calcWorkingSeconds } from '../../shared/workingTime';
 
 // ─── Mapeamento de Produto por Prefixo ───────────────────────────────────────
 
-const ID_REGEX = /^(BDJ|NB2|4GS|LOR|NBL|INS)\d{4,}$/;
+const ID_REGEX = /^(BDJ|NB2|4GS|LOR|NBL)\d{4,}$/;
 
 const PREFIX_TO_MODEL: Partial<Record<BoxPrefix, string>> = {
   'NB2': 'NB2',
   '4GS': '4G SIMCOM',
   'LOR': 'LORA',
   'NBL': 'NB + LORA',
-  'INS': 'Insumo',
 };
 
 // ─── Máquina de Estados ──────────────────────────────────────────────────────
@@ -38,15 +37,9 @@ const TRANSITIONS_4GS: TransitionMap = {
   'Firmware':  ['IMEI', 'Concluida'],
 };
 
-// INS só pode avançar para Montagem
-const TRANSITIONS_INS: TransitionMap = {
-  'Separacao': ['Montagem'],
-};
-
 function getTransitions(boxId: string): TransitionMap {
   const prefix = boxId.substring(0, 3) as BoxPrefix;
   if (prefix === '4GS') return TRANSITIONS_4GS;
-  if (prefix === 'INS') return TRANSITIONS_INS;
   return DEFAULT_TRANSITIONS;
 }
 
@@ -64,35 +57,55 @@ export function createBox(data: NewBoxInput) {
   const cleanId = data.id.trim().toUpperCase();
 
   if (!ID_REGEX.test(cleanId)) {
-    throw new Error('ID inválido. Use prefixos BDJ, NB2, 4GS, LOR, NBL ou INS.');
+    throw new Error('ID inválido. Use prefixos BDJ, NB2, 4GS, LOR ou NBL.');
   }
 
   const prefix = cleanId.substring(0, 3) as BoxPrefix;
-  const isInsumo = prefix === 'INS';
-  const origin = prefix === 'BDJ' ? 'TRAY' : 'PRODUCTION';
-  const firstStep: ProductionStep = isInsumo ? 'Separacao' : 'Montagem';
+  const isBandeja = prefix === 'BDJ';
+  const origin = isBandeja ? 'TRAY' : 'PRODUCTION';
 
-  const model = PREFIX_TO_MODEL[prefix] ?? null;
-  if (origin === 'PRODUCTION' && !model) {
+  // BDJ exige modelo; produtos de produção têm modelo fixo pelo prefixo
+  const model = isBandeja ? (data.model ?? null) : (PREFIX_TO_MODEL[prefix] ?? null);
+  if (isBandeja && !model) {
+    throw new Error('Bandeja (BDJ) exige um modelo de produto.');
+  }
+  if (!isBandeja && !model) {
     throw new Error(`Prefixo '${prefix}' não possui produto mapeado.`);
   }
 
-  const amount = isInsumo ? 450 : (data.amount ?? 500);
+  const isInsumo = data.isInsumo ?? false;
+  const initialStep: ProductionStep = isInsumo ? 'Montagem' : (data.step ?? 'Montagem');
+  const initialAmount = isInsumo ? 450 : (data.amount ?? 500);
 
   return db.transaction((tx) => {
     try {
       const [result] = tx.insert(box).values({
         id: cleanId,
         weight: data.weight ?? 0,
-        amount,
+        amount: initialAmount,
         model,
         operator: data.operator,
         description: data.description,
         volume: data.volume,
         origin,
-        step: isInsumo ? firstStep : (data.step ?? firstStep),
+        step: initialStep,
         location: data.location ?? 'ESTOQUE',
+        isInsumo,
       }).returning().all();
+
+      tx.insert(history).values({
+        boxId: cleanId,
+        startTime: new Date(),
+        endTime: new Date(),
+        timeSpent: 0,
+        typeOperation: 'CRIACAO',
+        stepStatus: 'CLOSED',
+        step: initialStep,
+        location: data.location ?? 'ESTOQUE',
+        operator: data.operator,
+        description: isInsumo ? 'Criação — Insumo' : `Criação${isBandeja ? ' — Bandeja' : ''}`,
+        modelo: model,
+      }).run();
 
       return result;
     } catch (error: any) {
@@ -135,13 +148,15 @@ export function createBatchBoxes(data: BatchBoxInput) {
       if (!ID_REGEX.test(cleanId)) throw new Error(`ID inválido: ${cleanId}`);
 
       const prefix = cleanId.substring(0, 3) as BoxPrefix;
-      const isInsumo = prefix === 'INS';
-      const origin = prefix === 'BDJ' ? 'TRAY' : 'PRODUCTION';
-      const model = isInsumo ? (data.model ?? null) : (PREFIX_TO_MODEL[prefix] ?? null);
-      if (origin === 'PRODUCTION' && !model) throw new Error(`Prefixo '${prefix}' sem produto mapeado.`);
+      const isBandeja = prefix === 'BDJ';
+      const origin = isBandeja ? 'TRAY' : 'PRODUCTION';
+      const model = isBandeja ? (data.model ?? null) : (PREFIX_TO_MODEL[prefix] ?? null);
+      if (isBandeja && !model) throw new Error(`Bandeja '${cleanId}' exige um modelo de produto.`);
+      if (!isBandeja && !model) throw new Error(`Prefixo '${prefix}' sem produto mapeado.`);
 
+      const isInsumo = data.isInsumo ?? false;
+      const step: ProductionStep = isInsumo ? 'Montagem' : (data.step ?? 'Montagem');
       const amount = isInsumo ? 450 : (data.amount ?? 500);
-      const step: ProductionStep = isInsumo ? 'Separacao' : (data.step ?? 'Montagem');
 
       try {
         const [row] = tx.insert(box).values({
@@ -155,7 +170,23 @@ export function createBatchBoxes(data: BatchBoxInput) {
           origin,
           step,
           location: data.location ?? 'ESTOQUE',
+          isInsumo,
         }).returning().all();
+
+        tx.insert(history).values({
+          boxId: cleanId,
+          startTime: new Date(),
+          endTime: new Date(),
+          timeSpent: 0,
+          typeOperation: 'CRIACAO',
+          stepStatus: 'CLOSED',
+          step,
+          location: data.location ?? 'ESTOQUE',
+          operator: data.operator,
+          description: isInsumo ? 'Criação — Insumo' : `Criação${isBandeja ? ' — Bandeja' : ''}`,
+          modelo: model,
+        }).run();
+
         results.push(row);
       } catch (error: any) {
         if (error.message.includes('UNIQUE constraint failed'))
@@ -253,7 +284,33 @@ export function startStep(data: StartStepInput) {
     );
   }
 
-  if (!isValidTransition(cleanId, currentStep, data.step)) {
+  // Insumo: Montagem é obrigatória antes de qualquer outra etapa
+  if (currentBox.isInsumo && data.step !== 'Montagem') {
+    const montagemConcluida = db
+      .select()
+      .from(history)
+      .where(and(
+        eq(history.boxId, cleanId),
+        eq(history.step, 'Montagem'),
+        eq(history.stepStatus, 'CLOSED'),
+        eq(history.typeOperation, 'SCAN_END'),
+      ))
+      .limit(1)
+      .all();
+
+    if (montagemConcluida.length === 0) {
+      throw new Error(
+        `Bloqueado: caixa "${cleanId}" é Insumo e ainda não passou pela Montagem. ` +
+        `Inicie e conclua a etapa de Montagem antes de "${data.step}".`
+      );
+    }
+  }
+
+  // Insumo iniciando Montagem pela primeira vez: step já é 'Montagem', não há transição a validar
+  const isInsumoStartingMontagem =
+    currentBox.isInsumo && data.step === 'Montagem' && currentStep === 'Montagem';
+
+  if (!isInsumoStartingMontagem && !isValidTransition(cleanId, currentStep, data.step)) {
     const next = getNextSteps(cleanId, currentStep);
     throw new Error(
       `Transição inválida: "${currentStep}" → "${data.step}". ` +
@@ -316,9 +373,6 @@ export function finishStep(boxId: string, operator: string, stockLocation: BoxLo
   // Tempo líquido respeitando calendário industrial
   const timeSpent = calcWorkingSeconds(startMs, now.getTime());
 
-  const isInsumoFinishingMontagem =
-    cleanId.startsWith('INS') && openRecord.step === 'Montagem';
-
   return db.transaction((tx) => {
     const [closed] = tx
       .update(history)
@@ -333,24 +387,6 @@ export function finishStep(boxId: string, operator: string, stockLocation: BoxLo
       .returning()
       .all();
 
-    if (isInsumoFinishingMontagem) {
-      // Caixa reutilizável: reset do conteúdo, volta a Separacao no estoque
-      tx.update(box)
-        .set({
-          step: 'Separacao',
-          location: 'ESTOQUE',
-          model: null,
-          volume: null,
-          amount: 0,
-          operator: null,
-          description: null,
-        })
-        .where(eq(box.id, cleanId))
-        .run();
-      return { closed, stockLocation: 'ESTOQUE' as BoxLocation };
-    }
-
-    // Roteamento padrão: caixa volta ao estoque após finalizar
     tx.update(box)
       .set({ location: stockLocation, operator })
       .where(eq(box.id, cleanId))

@@ -22,13 +22,8 @@ const TRANSITIONS_4GS: Partial<Record<ProductionStep, ProductionStep[]>> = {
   'Firmware':  ['IMEI', 'Concluida'],
 };
 
-const TRANSITIONS_INS: Partial<Record<ProductionStep, ProductionStep[]>> = {
-  'Separacao': ['Montagem'],
-};
-
 function getNextSteps(boxId: string, currentStep: ProductionStep): ProductionStep[] {
   if (boxId.startsWith('4GS')) return TRANSITIONS_4GS[currentStep] ?? [];
-  if (boxId.startsWith('INS')) return TRANSITIONS_INS[currentStep] ?? [];
   return DEFAULT_TRANSITIONS[currentStep] ?? [];
 }
 
@@ -102,14 +97,22 @@ interface ScanModalProps {
   caixa: any;
   mode: 'start' | 'finish';
   openRecord: any | null;
+  boxHistory: any[];
   onClose: () => void;
   onSuccess: (updated: any) => void;
 }
 
-const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess }: ScanModalProps) => {
+const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: ScanModalProps) => {
   const isFinish = mode === 'finish';
 
-  const nextSteps = !isFinish ? getNextSteps(caixa.id, caixa.step as ProductionStep) : [];
+  const montagemConcluida = boxHistory.some(
+    (r: any) => r.step === 'Montagem' && r.stepStatus === 'CLOSED' && r.typeOperation === 'SCAN_END'
+  );
+  const rawNextSteps = !isFinish ? getNextSteps(caixa.id, caixa.step as ProductionStep) : [];
+  const nextSteps: ProductionStep[] = (caixa.isInsumo && !montagemConcluida)
+    ? ['Montagem']
+    : rawNextSteps;
+
   const [selectedStep, setSelectedStep] = useState<ProductionStep>(nextSteps[0]);
   const [location, setLocation] = useState<BoxLocation>(
     isFinish ? 'ESTOQUE' : (LOCATIONS_BY_STEP[nextSteps[0]] ?? [])[0] ?? 'ESTOQUE'
@@ -501,7 +504,6 @@ const Inventory = () => {
     { value: 'LOR', label: 'LORA' },
     { value: 'NBL', label: 'NB + LORA' },
     { value: 'BDJ', label: 'BDJ (Bandejas)' },
-    { value: 'INS', label: 'INS (Insumos)' },
   ];
 
   return (
@@ -713,6 +715,7 @@ const Inventory = () => {
           caixa={caixa}
           mode={modalMode}
           openRecord={openRecord}
+          boxHistory={boxHistory}
           onClose={() => setScanModalAberto(false)}
           onSuccess={(updated) => {
             setCaixa(updated);
@@ -939,18 +942,6 @@ const Inventory = () => {
                 <div>
                   <p className="text-sm font-bold text-emerald-800">Produção concluída</p>
                   <p className="text-xs text-emerald-600 mt-0.5">Esta caixa completou todas as etapas de produção.</p>
-                </div>
-              </div>
-            ) : caixa.id.startsWith('INS') && caixa.step === 'Separacao' && !hasOpenStep && !caixa.model ? (
-              <div className="flex items-center gap-3 bg-teal-50 border border-teal-200 rounded-xl px-5 py-4">
-                <div className="w-8 h-8 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4 text-teal-600">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-teal-800">Caixa disponível — aguardando novo lote</p>
-                  <p className="text-xs text-teal-600 mt-0.5">Registre um novo insumo nesta caixa para reutilizá-la.</p>
                 </div>
               </div>
             ) : hasOpenStep ? (

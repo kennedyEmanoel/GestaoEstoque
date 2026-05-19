@@ -51,4 +51,12 @@ try {
   sqlite.exec(`ALTER TABLE box ADD COLUMN parent_id TEXT`);
 } catch { /* coluna já existe */ }
 
+try {
+  sqlite.exec(`ALTER TABLE box ADD COLUMN is_insumo INTEGER NOT NULL DEFAULT 0`);
+} catch { /* coluna já existe */ }
+
+try {
+  sqlite.exec(`ALTER TABLE history ADD COLUMN modelo TEXT`);
+} catch { /* coluna já existe */ }
+
 export const db = drizzle(sqlite, { schema });

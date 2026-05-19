@@ -5,25 +5,21 @@ const PREFIX_TO_MODEL: Record<string, string> = {
   '4GS': '4G SIMCOM',
   'LOR': 'LORA',
   'NBL': 'NB + LORA',
-  'INS': 'Insumo',
 };
+
+const PRODUCT_OPTIONS = [
+  { value: 'NB2',       label: 'NB2' },
+  { value: '4G SIMCOM', label: '4G SIMCOM' },
+  { value: 'LORA',      label: 'LORA' },
+  { value: 'NB + LORA', label: 'NB + LORA' },
+];
+
+const QUICK_AMOUNTS = ['200', '300', '450', '500'];
 
 interface NewBoxProps {
   isOpen: boolean;
   onClose: () => void;
 }
-
-const QUICK_AMOUNTS = ['200', '300', '450', '500'];
-
-const PRODUCT_OPTIONS = [
-  { value: 'NB2',      label: 'NB2' },
-  { value: '4G SIMCOM',label: '4G SIMCOM' },
-  { value: 'LORA',     label: 'LORA' },
-  { value: 'NB + LORA',label: 'NB + LORA' },
-];
-
-// mantém retrocompatibilidade com código que referencia INS_PRODUCT_OPTIONS
-const INS_PRODUCT_OPTIONS = PRODUCT_OPTIONS;
 
 const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
   const [formData, setFormData] = useState({
@@ -33,16 +29,14 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
     operator: '',
     step: 'Montagem',
     description: '',
-    volume: '',
     location: 'ESTOQUE',
   });
-  const [insProduct, setInsProduct] = useState(INS_PRODUCT_OPTIONS[0].value);
+  const [isInsumo, setIsInsumo] = useState(false);
+  const [bdjModel, setBdjModel] = useState(PRODUCT_OPTIONS[0].value);
 
   const derivedPrefix = useMemo(() => formData.id.trim().toUpperCase().substring(0, 3), [formData.id]);
   const derivedModel = useMemo(() => PREFIX_TO_MODEL[derivedPrefix] ?? null, [derivedPrefix]);
-  const isInsumo = derivedPrefix === 'INS';
   const isBandeja = derivedPrefix === 'BDJ';
-  const [bdjModel, setBdjModel] = useState(PRODUCT_OPTIONS[0].value);
 
   if (!isOpen) return null;
 
@@ -52,15 +46,19 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
   const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
-      const payload = isInsumo
-        ? { ...formData, amount: '450', step: 'Separacao', weight: formData.weight || '0', model: insProduct }
-        : isBandeja
-        ? { ...formData, model: bdjModel }
-        : formData;
+      const payload = {
+        ...formData,
+        step: isInsumo ? 'Montagem' : formData.step,
+        amount: isInsumo ? '450' : formData.amount,
+        model: isBandeja ? bdjModel : undefined,
+        isInsumo,
+        weight: formData.weight || '0',
+      };
       const response = await (window as any).api.createBox(payload);
       if (response.success) {
         alert('Caixa registrada com sucesso no sistema!');
-        setFormData({ id: '', amount: '', weight: '', operator: '', step: 'Montagem', description: '', volume: '', location: 'ESTOQUE' });
+        setFormData({ id: '', amount: '', weight: '', operator: '', step: 'Montagem', description: '', location: 'ESTOQUE' });
+        setIsInsumo(false);
         onClose();
       } else {
         alert('Atenção: ' + response.error);
@@ -79,7 +77,7 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
           <div>
             <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-0.5">Nova Entrada</p>
             <h2 className="text-base font-bold text-zinc-900">Registrar Nova Caixa</h2>
-            <p className="text-xs text-zinc-400 mt-0.5">BDJ (Bandeja) · NB2 / 4GS (Produto) · INS (Insumo)</p>
+            <p className="text-xs text-zinc-400 mt-0.5">BDJ (Bandeja) · NB2 / 4GS / LOR / NBL (Produto)</p>
           </div>
           <button
             onClick={onClose}
@@ -96,27 +94,33 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
 
           {/* ID */}
           <div className="col-span-2">
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Código ID — Bipe o etiqueta</label>
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Código ID — Bipe a etiqueta</label>
             <input
               required
               type="text"
               value={formData.id}
               onChange={(e) => set('id', e.target.value.toUpperCase())}
-              placeholder="INS..., BDJ... ou NB2..."
+              placeholder="BDJ..., NB2..., 4GS..., LOR... ou NBL..."
               className="w-full px-4 py-3 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none font-mono text-lg text-zinc-900 transition-colors"
             />
           </div>
 
-          {/* Volume */}
-          <div>
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Volume</label>
-            <input
-              type="text"
-              value={formData.volume}
-              onChange={(e) => set('volume', e.target.value)}
-              placeholder="Ex: 1/111"
-              className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors"
-            />
+          {/* Checkbox Insumo */}
+          <div className="col-span-2">
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div
+                onClick={() => setIsInsumo((v) => !v)}
+                className={`w-10 h-6 rounded-full transition-colors flex items-center px-1 ${isInsumo ? 'bg-teal-600' : 'bg-zinc-300'}`}
+              >
+                <div className={`w-4 h-4 bg-white rounded-full shadow transition-transform ${isInsumo ? 'translate-x-4' : 'translate-x-0'}`} />
+              </div>
+              <span className={`text-sm font-semibold ${isInsumo ? 'text-teal-700' : 'text-zinc-500'}`}>
+                Marcar como Insumo
+              </span>
+              {isInsumo && (
+                <span className="text-xs bg-teal-100 text-teal-700 font-bold px-2 py-0.5 rounded-full">INSUMO</span>
+              )}
+            </label>
           </div>
 
           {/* Localização (readonly) */}
@@ -131,24 +135,11 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
           <div className="col-span-2">
             <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
               Produto{' '}
-              {(isInsumo || isBandeja) && (
-                <span className="normal-case font-semibold text-teal-600">(obrigatório)</span>
+              {isBandeja && (
+                <span className="normal-case font-semibold text-orange-600">(obrigatório para BDJ)</span>
               )}
             </label>
-            {isInsumo ? (
-              <div className="flex gap-2">
-                {PRODUCT_OPTIONS.map((opt) => (
-                  <button key={opt.value} type="button" onClick={() => setInsProduct(opt.value)}
-                    className={`flex-1 py-2 text-xs font-bold rounded-lg border transition-colors ${
-                      insProduct === opt.value
-                        ? 'bg-teal-600 text-white border-teal-600'
-                        : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
-                    }`}>
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            ) : isBandeja ? (
+            {isBandeja ? (
               <div className="flex gap-2">
                 {PRODUCT_OPTIONS.map((opt) => (
                   <button key={opt.value} type="button" onClick={() => setBdjModel(opt.value)}
@@ -174,11 +165,9 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
 
           {/* Quantidade */}
           <div>
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
-              Quantidade
-            </label>
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Quantidade</label>
             {isInsumo ? (
-              <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm font-bold text-amber-700">
+              <div className="w-full px-3 py-2.5 bg-teal-50 border border-teal-200 rounded-lg text-sm font-bold text-teal-700">
                 450 unidades (fixo para Insumo)
               </div>
             ) : (
@@ -213,12 +202,10 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
 
           {/* Peso */}
           <div>
-            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
-              Peso (kg) {isInsumo && <span className="normal-case font-normal text-zinc-300">(opcional)</span>}
-            </label>
-            {!isInsumo && <div className="h-8 mb-2" />}
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Peso (kg)</label>
+            <div className="h-8 mb-2" />
             <input
-              required={!isInsumo}
+              required
               type="number"
               step="0.01"
               value={formData.weight}
@@ -245,8 +232,8 @@ const NewBox = ({ isOpen, onClose }: NewBoxProps) => {
           <div>
             <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Etapa Atual</label>
             {isInsumo ? (
-              <div className="w-full px-3 py-2.5 bg-amber-50 border border-amber-200 rounded-lg text-sm font-semibold text-amber-700">
-                Separação (fixo para Insumo)
+              <div className="w-full px-3 py-2.5 bg-teal-50 border border-teal-200 rounded-lg text-sm font-semibold text-teal-700">
+                Montagem (fixo para Insumo)
               </div>
             ) : (
               <select

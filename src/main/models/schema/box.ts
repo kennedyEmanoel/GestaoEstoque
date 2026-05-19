@@ -1,7 +1,7 @@
 import { sqliteTable as table } from 'drizzle-orm/sqlite-core';
 import * as t from "drizzle-orm/sqlite-core";
 
-export type BoxPrefix = 'BDJ' | 'NB2' | '4GS' | 'LOR' | 'NBL' | 'INS';
+export type BoxPrefix = 'BDJ' | 'NB2' | '4GS' | 'LOR' | 'NBL';
 
 export type ProductionStep =
   | 'Separacao'
@@ -43,4 +43,5 @@ export const box = table('box', {
   description: t.text('description'),
   date: t.integer("date", { mode: "timestamp" }).$defaultFn(() => new Date()),
   parentId: t.text('parent_id'),
+  isInsumo: t.integer('is_insumo', { mode: 'boolean' }).notNull().default(false),
 });
