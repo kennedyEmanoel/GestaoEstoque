@@ -2,7 +2,18 @@ import { sqliteTable as table } from "drizzle-orm/sqlite-core";
 import * as t from "drizzle-orm/sqlite-core";
 import { box } from "./box";
 
-export type HistoryOperation = 'SCAN_START' | 'SCAN_END' | 'TRANSFER' | 'EXPEDICAO' | 'CONSUMO_BDJ' | 'CRIACAO';
+export type HistoryOperation =
+  | 'SCAN_START'
+  | 'SCAN_END'
+  | 'TRANSFER'
+  | 'EXPEDICAO'
+  | 'CONSUMO_BDJ'    // legado: consumo total via consumirBdj
+  | 'CRIACAO'
+  | 'SPLIT_PARCIAL'  // source perdeu amount mas ainda tem saldo
+  | 'CONSUMO_SPLIT'  // source chegou a zero via createTrayFromSources
+  | 'CRIACAO_SPLIT'  // nova box criada por composição de fontes
+  | 'INSUMO_SAIDA'   // INS teve amount subtraído ao finalizar operação
+  | 'INSUMO_ENTRADA'; // caixa de destino recebeu unidades de uma INS
 export type StepStatus = 'OPEN' | 'CLOSED';
 
 export const history = table("history", {

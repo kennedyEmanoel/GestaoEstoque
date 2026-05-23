@@ -42,21 +42,17 @@ const PRODUCTION_STEPS: ProductionStep[] = [
 ];
 
 export function getDashboardData(filters: DashboardFilters): DashboardData {
-  // ── 1. Caixas filtradas ───────────────────────────────────────────────────
-  const allBoxes = db.select().from(box).all();
+  // ── 1. Caixas filtradas via SQL (evita full scan em memória) ─────────────
+  const conditions = [];
+  if (filters.model)    conditions.push(eq(box.model, filters.model));
+  if (filters.dateFrom) conditions.push(gte(box.date, new Date(filters.dateFrom)));
+  if (filters.dateTo)   conditions.push(lte(box.date, new Date(filters.dateTo)));
 
-  const filtered = allBoxes.filter(b => {
-    if (filters.model && b.model !== filters.model) return false;
-    if (filters.dateFrom && b.date) {
-      const ts = b.date instanceof Date ? b.date.getTime() : (b.date as number) * 1000;
-      if (ts < filters.dateFrom) return false;
-    }
-    if (filters.dateTo && b.date) {
-      const ts = b.date instanceof Date ? b.date.getTime() : (b.date as number) * 1000;
-      if (ts > filters.dateTo) return false;
-    }
-    return true;
-  });
+  const filtered = conditions.length > 0
+    ? db.select().from(box).where(and(...conditions)).all()
+    : db.select().from(box).all();
+
+  const allBoxes = filtered; // manter compatibilidade com uso abaixo
 
   const boxIds = filtered.map(b => b.id);
 
@@ -105,7 +101,7 @@ export function getDashboardData(filters: DashboardFilters): DashboardData {
     const startMs = h.startTime instanceof Date
       ? h.startTime.getTime() : (h.startTime as number) * 1000;
     const endMs = h.endTime instanceof Date
-      ? (h.endTime as Date).getTime() : (h.endTime as number) * 1000;
+      ? h.endTime.getTime() : (h.endTime as unknown as number) * 1000;
 
     const worked = calcWorkingSeconds(startMs, endMs);
     if (!stepAvgMap[h.step]) stepAvgMap[h.step] = { totalSec: 0, count: 0 };
@@ -170,7 +166,7 @@ export function getDashboardData(filters: DashboardFilters): DashboardData {
     .all()
     .filter(h => {
       const endMs = h.endTime instanceof Date
-        ? (h.endTime as Date).getTime() : (h.endTime as number) * 1000;
+        ? h.endTime.getTime() : (h.endTime as unknown as number) * 1000;
       return endMs >= windowStart && endMs <= now;
     });
 

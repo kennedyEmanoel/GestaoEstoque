@@ -75,7 +75,7 @@ export function createBox(data: NewBoxInput) {
 
   const isInsumo = data.isInsumo ?? false;
   const initialStep: ProductionStep = isInsumo ? 'Montagem' : (data.step ?? 'Montagem');
-  const initialAmount = isInsumo ? 450 : (data.amount ?? 500);
+  const initialAmount = data.amount ?? 500;
 
   return db.transaction((tx) => {
     try {
@@ -156,7 +156,7 @@ export function createBatchBoxes(data: BatchBoxInput) {
 
       const isInsumo = data.isInsumo ?? false;
       const step: ProductionStep = isInsumo ? 'Montagem' : (data.step ?? 'Montagem');
-      const amount = isInsumo ? 450 : (data.amount ?? 500);
+      const amount = data.amount ?? 500;
 
       try {
         const [row] = tx.insert(box).values({

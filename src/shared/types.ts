@@ -1,8 +1,61 @@
 import type { BoxLocation, BoxPrefix, ProductionStep } from '../main/models/schema/box';
 import type { HistoryOperation, StepStatus } from '../main/models/schema/history';
-import type { DashboardData, DashboardFilters } from '../main/services/dashboardService';
 
-export type { BoxLocation, BoxPrefix, ProductionStep, HistoryOperation, StepStatus, DashboardData, DashboardFilters };
+export type { BoxLocation, BoxPrefix, ProductionStep, HistoryOperation, StepStatus };
+
+// Tipos do Dashboard (copiados aqui para não criar dependência de runtime em dashboardService)
+export interface DashboardFilters {
+  model?: string;
+  dateFrom?: number;
+  dateTo?: number;
+}
+
+export interface StepFunnel {
+  step: ProductionStep;
+  totalUnits: number;
+  boxesInStock: number;
+  boxesActive: number;
+  avgLeadTimeSec: number;
+}
+
+export interface CreateTrayFromSourcesInput {
+  newBoxId:     string;
+  model?:       string | null;
+  operator:     string;
+  weight?:      number;
+  location?:    BoxLocation;
+  description?: string;
+  sources: Array<{
+    sourceBoxId:  string;
+    amountTaken:  number;
+  }>;
+}
+
+export interface BoxCompositionRecord {
+  compositionId: number;
+  sourceBoxId:   string;
+  newBoxId:      string;
+  amountTaken:   number;
+  createdAt:     Date | number;
+  operator:      string | null;
+}
+
+export interface BoxLineage {
+  boxId:        string;
+  ascendentes:  Array<BoxCompositionRecord & { sourceModel: string | null; sourceStep: string | null; sourceAmount: number | null }>;
+  descendentes: Array<BoxCompositionRecord & { destModel:   string | null; destStep:   string | null; destAmount:   number | null }>;
+}
+
+export interface DashboardData {
+  totalUnitsInStock: number;
+  totalUnitsInProduction: number;
+  byModel: { model: string; unitsInStock: number; unitsInProduction: number }[];
+  funnel: StepFunnel[];
+  avgLeadTimeSec: number;
+  uphLast8h: number;
+  bottleneckStep: ProductionStep | null;
+  availableModels: string[];
+}
 
 export interface NewBoxInput {
   id: string;
@@ -51,6 +104,17 @@ export interface ConsumirBdjInput {
   operator: string;
 }
 
+export interface FinishInsumoStepInput {
+  boxId: string;          // a caixa INS sendo finalizada
+  operator: string;
+  stockLocation: BoxLocation;
+  destinationId: string;  // BDJ ou NB2/4GS/LOR/NBL onde as unidades vão
+  producedAmount: number; // quantas unidades foram produzidas nessa operação
+  destinationModel?: string | null; // modelo obrigatório se destino for BDJ novo
+  destinationStep?: ProductionStep; // step da caixa de destino (default: 'Montagem')
+  description?: string;
+}
+
 export interface StockSummary {
   inStock: number;
   inProduction: number;
@@ -81,6 +145,9 @@ declare global {
       deleteManyBoxes: (prefix: string) => Promise<ApiResponse<number>>;
       expedicao: (data: ExpedicaoInput) => Promise<ApiResponse>;
       consumirBdj: (bdjId: string, caixaDestinoId: string, operator: string) => Promise<ApiResponse>;
+      createTrayFromSources: (data: CreateTrayFromSourcesInput) => Promise<ApiResponse>;
+      getBoxLineage: (boxId: string) => Promise<ApiResponse<BoxLineage>>;
+      finishInsumoStep: (data: FinishInsumoStepInput) => Promise<ApiResponse>;
     };
   }
 }

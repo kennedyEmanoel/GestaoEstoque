@@ -1,11 +1,13 @@
 import { defineConfig } from 'vite';
 
-// https://vitejs.dev/config
 export default defineConfig({
-    build: {
+  build: {
     rollupOptions: {
-      // Isso diz ao Vite para não tentar empacotar o SQLite
-      external: ['better-sqlite3'], 
+      external: [
+        'better-sqlite3',
+        // O worker é compilado como entry separado; não deve ser bundlado no main.
+        /.*\/worker\/dbWorker(\.js)?$/,
+      ],
     },
   },
 });

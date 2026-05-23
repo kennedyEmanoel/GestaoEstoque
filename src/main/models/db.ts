@@ -47,6 +47,16 @@ try {
   sqlite.exec(`ALTER TABLE history ADD COLUMN step_status TEXT NOT NULL DEFAULT 'OPEN'`);
 } catch { /* coluna já existe */ }
 
+// Índices para evitar full table scan nas queries mais frequentes
+try {
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_history_box_id    ON history(box_id)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_history_step      ON history(step)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_history_status    ON history(step_status)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_box_step          ON box(step)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_box_location      ON box(location)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_box_model         ON box(model)`);
+} catch { /* índices já existem */ }
+
 try {
   sqlite.exec(`ALTER TABLE box ADD COLUMN parent_id TEXT`);
 } catch { /* coluna já existe */ }

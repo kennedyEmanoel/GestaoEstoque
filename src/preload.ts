@@ -17,4 +17,10 @@ contextBridge.exposeInMainWorld('api', {
   deleteManyBoxes: (prefix: string) => ipcRenderer.invoke('delete-many-boxes', prefix),
   consumirBdj: (bdjId: string, caixaDestinoId: string, operator: string) =>
     ipcRenderer.invoke('consumir-bdj', bdjId, caixaDestinoId, operator),
+  createTrayFromSources: (data: any) =>
+    ipcRenderer.invoke('create-tray-from-sources', data),
+  getBoxLineage: (boxId: string) =>
+    ipcRenderer.invoke('get-box-lineage', boxId),
+  finishInsumoStep: (data: any) =>
+    ipcRenderer.invoke('finish-insumo-step', data),
 });

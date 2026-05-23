@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import NewBox from '../../components/NewBox';
 import BatchBox from '../../components/BatchBox';
-import type { ProductionStep, BoxLocation } from '../../../shared/types';
+import type { ProductionStep, BoxLocation, BoxLineage, CreateTrayFromSourcesInput } from '../../../shared/types';
 import { calcWorkingSeconds, formatWorkingTime } from '../../../shared/workingTime';
 
 // ─── Máquina de estados ───────────────────────────────────────────────────────
@@ -31,54 +31,54 @@ function getNextSteps(boxId: string, currentStep: ProductionStep): ProductionSte
 
 const LOCATION_LABELS: Record<BoxLocation, string> = {
   'ESTOQUE':      'Estoque',
-  'ARMARIO_A':    'Estoque — Armário A',
-  'ARMARIO_B':    'Estoque — Armário B',
-  'ARMARIO_C':    'Estoque — Armário C',
-  'ARMARIO_D':    'Estoque — Armário D',
-  'ARMARIO_E':    'Estoque — Armário E',
-  'ARMARIO_F':    'Estoque — Armário F',
-  'ARMARIO_G':    'Estoque — Armário G',
-  'ARMARIO_H':    'Estoque — Armário H',
-  'ARMARIO_I':    'Estoque — Armário I',
-  'ARMARIO_J':    'Estoque — Armário J',
-  'ARMARIO_K':    'Estoque — Armário K',
-  'ARMARIO_L':    'Estoque — Armário L',
-  'ARMARIO_M':    'Estoque — Armário M',
-  'ARMARIO_N':    'Estoque — Armário N',
-  'ARMARIO_O':    'Estoque — Armário O',
-  'MONTAGEM_01':  'Produção — Montagem 01',
-  'MONTAGEM_02':  'Produção — Montagem 02',
-  'SOLDAGEM_01':  'Produção — Soldagem 01',
-  'SOLDAGEM_02':  'Produção — Soldagem 02',
-  'SOLDAGEM_03':  'Produção — Soldagem 03',
-  'SOLDAGEM_04':  'Produção — Soldagem 04',
-  'REVISAO_01':   'Produção — Revisão 01',
-  'REVISAO_02':   'Produção — Revisão 02',
-  'REVISAO_03':   'Produção — Revisão 03',
-  'REVISAO_04':   'Produção — Revisão 04',
-  'GRAVACAO_01':  'Produção — Gravação 01',
-  'GRAVACAO_02':  'Produção — Gravação 02',
-  'GRAVACAO_03':  'Produção — Gravação 03',
-  'GRAVACAO_04':  'Produção — Gravação 04',
-  'GRAVACAO_05':  'Produção — Gravação 05',
-  'GRAVACAO_06':  'Produção — Gravação 06',
+  'ARM_A':    'Estoque — Armário A',
+  'ARM_B':    'Estoque — Armário B',
+  'ARM_C':    'Estoque — Armário C',
+  'ARM_D':    'Estoque — Armário D',
+  'ARM_E':    'Estoque — Armário E',
+  'ARM_F':    'Estoque — Armário F',
+  'ARM_G':    'Estoque — Armário G',
+  'ARM_H':    'Estoque — Armário H',
+  'ARM_I':    'Estoque — Armário I',
+  'ARM_J':    'Estoque — Armário J',
+  'ARM_K':    'Estoque — Armário K',
+  'ARM_L':    'Estoque — Armário L',
+  'ARM_M':    'Estoque — Armário M',
+  'ARM_N':    'Estoque — Armário N',
+  'ARM_O':    'Estoque — Armário O',
+  'MONT_01':  'Produção — Montagem 01',
+  'MONT_02':  'Produção — Montagem 02',
+  'SOLD_01':  'Produção — Soldagem 01',
+  'SOLD_02':  'Produção — Soldagem 02',
+  'SOLD_03':  'Produção — Soldagem 03',
+  'SOLD_04':  'Produção — Soldagem 04',
+  'REVI_01':  'Produção — Revisão 01',
+  'REVI_02':  'Produção — Revisão 02',
+  'REVI_03':  'Produção — Revisão 03',
+  'REVI_04':  'Produção — Revisão 04',
+  'GRAV_01':  'Produção — Gravação 01',
+  'GRAV_02':  'Produção — Gravação 02',
+  'GRAV_03':  'Produção — Gravação 03',
+  'GRAV_04':  'Produção — Gravação 04',
+  'GRAV_05':  'Produção — Gravação 05',
+  'GRAV_06':  'Produção — Gravação 06',
 };
 
 const LOCATIONS_BY_STEP: Partial<Record<ProductionStep, BoxLocation[]>> = {
-  'Montagem':  ['MONTAGEM_01', 'MONTAGEM_02'],
-  'Soldagem':  ['SOLDAGEM_01', 'SOLDAGEM_02', 'SOLDAGEM_03', 'SOLDAGEM_04'],
-  'Revisao':   ['REVISAO_01', 'REVISAO_02', 'REVISAO_03', 'REVISAO_04'],
-  'Firmware':  ['GRAVACAO_01', 'GRAVACAO_02', 'GRAVACAO_03', 'GRAVACAO_04', 'GRAVACAO_05', 'GRAVACAO_06'],
-  'IMEI':      ['GRAVACAO_01', 'GRAVACAO_02', 'GRAVACAO_03', 'GRAVACAO_04', 'GRAVACAO_05', 'GRAVACAO_06'],
-  'Concluida': ['ESTOQUE', 'ARMARIO_A', 'ARMARIO_B', 'ARMARIO_C', 'ARMARIO_D', 'ARMARIO_E',
-                'ARMARIO_F', 'ARMARIO_G', 'ARMARIO_H', 'ARMARIO_I', 'ARMARIO_J',
-                'ARMARIO_K', 'ARMARIO_L', 'ARMARIO_M', 'ARMARIO_N', 'ARMARIO_O'],
+  'Montagem':  ['MONT_01', 'MONT_02'],
+  'Soldagem':  ['SOLD_01', 'SOLD_02', 'SOLD_03', 'SOLD_04'],
+  'Revisao':   ['REVI_01', 'REVI_02', 'REVI_03', 'REVI_04'],
+  'Firmware':  ['GRAV_01', 'GRAV_02', 'GRAV_03', 'GRAV_04', 'GRAV_05', 'GRAV_06'],
+  'IMEI':      ['GRAV_01', 'GRAV_02', 'GRAV_03', 'GRAV_04', 'GRAV_05', 'GRAV_06'],
+  'Concluida': ['ESTOQUE', 'ARM_A', 'ARM_B', 'ARM_C', 'ARM_D', 'ARM_E',
+                'ARM_F', 'ARM_G', 'ARM_H', 'ARM_I', 'ARM_J',
+                'ARM_K', 'ARM_L', 'ARM_M', 'ARM_N', 'ARM_O'],
 };
 
 const STOCK_LOCATIONS: BoxLocation[] = [
-  'ESTOQUE', 'ARMARIO_A', 'ARMARIO_B', 'ARMARIO_C', 'ARMARIO_D', 'ARMARIO_E',
-  'ARMARIO_F', 'ARMARIO_G', 'ARMARIO_H', 'ARMARIO_I', 'ARMARIO_J',
-  'ARMARIO_K', 'ARMARIO_L', 'ARMARIO_M', 'ARMARIO_N', 'ARMARIO_O',
+  'ESTOQUE', 'ARM_A', 'ARM_B', 'ARM_C', 'ARM_D', 'ARM_E',
+  'ARM_F', 'ARM_G', 'ARM_H', 'ARM_I', 'ARM_J',
+  'ARM_K', 'ARM_L', 'ARM_M', 'ARM_N', 'ARM_O',
 ];
 
 const STEP_COLORS: Partial<Record<ProductionStep, { dot: string; badge: string; icon: string }>> = {
@@ -90,6 +90,24 @@ const STEP_COLORS: Partial<Record<ProductionStep, { dot: string; badge: string; 
   'IMEI':      { dot: 'bg-cyan-500',   badge: 'bg-cyan-50 text-cyan-700 ring-cyan-200',       icon: 'bg-cyan-100 text-cyan-600'   },
   'Concluida': { dot: 'bg-emerald-500',badge: 'bg-emerald-50 text-emerald-700 ring-emerald-200', icon: 'bg-emerald-100 text-emerald-600' },
 };
+
+// ─── Ícones inline ────────────────────────────────────────────────────────────
+
+const IconX = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+  </svg>
+);
+const IconPlus = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+  </svg>
+);
+const IconTrash = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
+    <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+  </svg>
+);
 
 // ─── ScanModal ────────────────────────────────────────────────────────────────
 
@@ -103,7 +121,8 @@ interface ScanModalProps {
 }
 
 const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: ScanModalProps) => {
-  const isFinish = mode === 'finish';
+  const isFinish  = mode === 'finish';
+  const isInsumo  = (caixa.id as string).startsWith('INS');
 
   const montagemConcluida = boxHistory.some(
     (r: any) => r.step === 'Montagem' && r.stepStatus === 'CLOSED' && r.typeOperation === 'SCAN_END'
@@ -117,8 +136,12 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
   const [location, setLocation] = useState<BoxLocation>(
     isFinish ? 'ESTOQUE' : (LOCATIONS_BY_STEP[nextSteps[0]] ?? [])[0] ?? 'ESTOQUE'
   );
-  const [operator, setOperator] = useState('');
+  const [operator, setOperator]       = useState('');
   const [description, setDescription] = useState('');
+  // campos exclusivos do fluxo INS ao finalizar
+  const [destinationId, setDestinationId]       = useState('');
+  const [producedAmount, setProducedAmount]      = useState('');
+  const [destinationModel, setDestinationModel] = useState('');
   const [salvando, setSalvando] = useState(false);
 
   const availableLocations: BoxLocation[] = isFinish
@@ -135,23 +158,51 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
     if (!operator.trim()) return;
     setSalvando(true);
     try {
-      if (isFinish) {
-        const res = await (window as any).api.finishStep(caixa.id, operator.trim(), location);
+      if (isFinish && isInsumo) {
+        // ── Fluxo especial INS: envasamento ──────────────────────────────
+        const cleanDst = destinationId.trim().toUpperCase();
+        const qty = parseInt(producedAmount, 10);
+        if (!cleanDst) { alert('Informe o ID da caixa de destino.'); setSalvando(false); return; }
+        if (!qty || qty <= 0) { alert('Informe uma quantidade produzida válida.'); setSalvando(false); return; }
+        const res = await window.api.finishInsumoStep({
+          boxId:           caixa.id,
+          operator:        operator.trim(),
+          stockLocation:   location,
+          destinationId:   cleanDst,
+          producedAmount:  qty,
+          destinationModel: destinationModel.trim() || undefined,
+          description:     description.trim() || undefined,
+        });
         if (res.success) {
-          onSuccess({ ...caixa, location: res.data.stockLocation });
+          const d = res.data as any;
+          alert(
+            `Operação registrada!\n` +
+            `• ${caixa.id}: saldo restante ${d.source.novoAmount} un.${d.source.esgotada ? ' — ESGOTADO' : ''}\n` +
+            `• ${d.destination.id}: ${d.destination.created ? 'criado com' : 'acumulado para'} ${d.destination.amount} un.`
+          );
+          onSuccess({ ...caixa, amount: d.source.novoAmount, location });
+        } else {
+          alert('Erro ao finalizar: ' + res.error);
+        }
+      } else if (isFinish) {
+        // ── Fluxo normal: finish simples ─────────────────────────────────
+        const res = await window.api.finishStep(caixa.id, operator.trim(), location);
+        if (res.success) {
+          onSuccess({ ...caixa, location: (res.data as any).stockLocation });
         } else {
           alert('Erro ao finalizar: ' + res.error);
         }
       } else {
-        const res = await (window as any).api.startStep({
-          boxId: caixa.id,
-          step: selectedStep,
-          operator: operator.trim(),
+        // ── Iniciar etapa ─────────────────────────────────────────────────
+        const res = await window.api.startStep({
+          boxId:       caixa.id,
+          step:        selectedStep,
+          operator:    operator.trim(),
           location,
           description: description.trim() || undefined,
         });
         if (res.success) {
-          onSuccess(res.data.box);
+          onSuccess((res.data as any).box);
         } else {
           alert('Erro ao iniciar: ' + res.error);
         }
@@ -168,26 +219,25 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
-
-        {/* Header */}
         <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest mb-0.5 text-zinc-400">
-              {isFinish ? 'Finalizar Etapa' : 'Iniciar Próxima Etapa'}
+              {isFinish
+                ? isInsumo ? 'Finalizar & Envasar — Insumo' : 'Finalizar Etapa'
+                : 'Iniciar Próxima Etapa'}
             </p>
             <p className="text-base font-bold text-zinc-900 font-mono">{caixa.id}</p>
+            {isInsumo && (
+              <p className="text-xs text-teal-600 font-semibold mt-0.5">
+                Saldo atual: {caixa.amount} un.
+              </p>
+            )}
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-            </svg>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <IconX />
           </button>
         </div>
 
-        {/* Sem próximas etapas (concluída) */}
         {!isFinish && nextSteps.length === 0 ? (
           <div className="px-6 py-12 text-center">
             <div className="w-12 h-12 rounded-xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
@@ -202,15 +252,9 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-5">
-
-            {/* MODO FINALIZAR: etapa em andamento (somente leitura) */}
+          <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
             {isFinish && (
-              <div className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${
-                stepColors
-                  ? 'bg-amber-50 border-amber-200'
-                  : 'bg-zinc-50 border-zinc-200'
-              }`}>
+              <div className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${stepColors ? 'bg-amber-50 border-amber-200' : 'bg-zinc-50 border-zinc-200'}`}>
                 <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${stepColors?.dot ?? 'bg-zinc-400'}`} />
                 <div>
                   <p className="text-xs font-semibold text-amber-700 uppercase tracking-widest">Em andamento</p>
@@ -219,22 +263,13 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
               </div>
             )}
 
-            {/* MODO INICIAR: seletor de próxima etapa */}
             {!isFinish && (
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Próxima Etapa</label>
                 <div className="flex gap-2">
                   {nextSteps.map((step) => (
-                    <button
-                      key={step}
-                      type="button"
-                      onClick={() => handleStepChange(step)}
-                      className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-all ${
-                        selectedStep === step
-                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
-                          : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-800'
-                      }`}
-                    >
+                    <button key={step} type="button" onClick={() => handleStepChange(step)}
+                      className={`flex-1 py-2.5 rounded-lg text-sm font-semibold border transition-all ${selectedStep === step ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white text-zinc-600 border-zinc-200 hover:border-zinc-400 hover:text-zinc-800'}`}>
                       {step}
                     </button>
                   ))}
@@ -242,74 +277,108 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
               </div>
             )}
 
-            {/* Localização */}
+            {/* ── Campos exclusivos do envasamento (INS + finish) ── */}
+            {isFinish && isInsumo && (
+              <>
+                <div className="bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
+                  <p className="text-xs font-bold text-teal-700 uppercase tracking-widest mb-0.5">Envasamento</p>
+                  <p className="text-xs text-teal-600">Informe onde as unidades produzidas serão armazenadas</p>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                    ID de Destino <span className="normal-case font-semibold text-teal-600">(BDJ ou caixa de produto)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={destinationId}
+                    onChange={(e) => setDestinationId(e.target.value.toUpperCase())}
+                    placeholder="Ex: BDJ0050 ou NB20100"
+                    className="w-full px-3 py-2.5 text-sm font-mono bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                    Qtd. Produzida <span className="normal-case font-semibold text-teal-600">(máx. {caixa.amount} un.)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    max={caixa.amount}
+                    value={producedAmount}
+                    onChange={(e) => setProducedAmount(e.target.value)}
+                    placeholder={`1 – ${caixa.amount}`}
+                    className="w-full px-3 py-2.5 text-sm font-bold bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                    Modelo do Destino <span className="normal-case font-normal text-zinc-300">(obrigatório se BDJ novo)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={destinationModel}
+                    onChange={(e) => setDestinationModel(e.target.value)}
+                    placeholder="Ex: NB2, 4G SIMCOM..."
+                    className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors"
+                  />
+                </div>
+              </>
+            )}
+
+            {/* Localização de retorno da caixa INS / destino normal */}
             <div>
               <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
-                {isFinish ? 'Destino no Estoque' : 'Localização'}
+                {isFinish && isInsumo ? 'Onde guardar a caixa INS após operação' : isFinish ? 'Destino no Estoque' : 'Localização'}
               </label>
-              <select
-                required
-                value={location}
-                onChange={(e) => setLocation(e.target.value as BoxLocation)}
-                className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-zinc-700 transition-colors cursor-pointer"
-              >
+              <select required value={location} onChange={(e) => setLocation(e.target.value as BoxLocation)}
+                className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-zinc-700 transition-colors cursor-pointer">
                 {availableLocations.map((loc) => (
                   <option key={loc} value={loc}>{LOCATION_LABELS[loc]}</option>
                 ))}
               </select>
             </div>
 
-            {/* Operador */}
             <div>
               <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Operador</label>
-              <input
-                required
-                type="text"
-                value={operator}
-                onChange={(e) => setOperator(e.target.value)}
+              <input required type="text" value={operator} onChange={(e) => setOperator(e.target.value)}
                 placeholder="Nome do operador"
-                className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-zinc-700 transition-colors"
-              />
+                className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-zinc-700 transition-colors" />
             </div>
 
-            {/* Observação */}
             <div>
               <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
                 Observação <span className="normal-case font-normal text-zinc-300">(opcional)</span>
               </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                placeholder="Retrabalho, peça trocada..."
-                rows={2}
-                className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-zinc-700 transition-colors resize-none"
-              />
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+                placeholder="Retrabalho, peça trocada..." rows={2}
+                className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-zinc-700 transition-colors resize-none" />
             </div>
 
-            {/* Ações */}
             <div className="flex gap-2 pt-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors"
-              >
+              <button type="button" onClick={onClose}
+                className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors">
                 Cancelar
               </button>
-              <button
-                type="submit"
-                disabled={salvando}
+              <button type="submit" disabled={salvando}
                 className={`flex-[2] py-2.5 text-sm font-bold text-white rounded-lg transition-colors disabled:opacity-40 ${
-                  isFinish
-                    ? 'bg-emerald-600 hover:bg-emerald-700'
-                    : 'bg-blue-600 hover:bg-blue-700'
-                }`}
-              >
+                  isFinish && isInsumo
+                    ? 'bg-teal-600 hover:bg-teal-700'
+                    : isFinish
+                      ? 'bg-emerald-600 hover:bg-emerald-700'
+                      : 'bg-blue-600 hover:bg-blue-700'
+                }`}>
                 {salvando
-                  ? (isFinish ? 'Finalizando...' : 'Iniciando...')
-                  : (isFinish ? 'Finalizar Etapa' : 'Iniciar Etapa')}
+                  ? 'Processando...'
+                  : isFinish && isInsumo
+                    ? 'Finalizar & Envasar'
+                    : isFinish
+                      ? 'Finalizar Etapa'
+                      : 'Iniciar Etapa'}
               </button>
             </div>
-
           </form>
         )}
       </div>
@@ -317,7 +386,277 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
   );
 };
 
-// ─── Detail Cards ──────────────────────────────────────────────────────────────
+// ─── Modal Criar Bandeja (Split / Merge) ──────────────────────────────────────
+
+interface SourceRow { sourceBoxId: string; amountTaken: string }
+
+interface CreateTrayModalProps {
+  onClose: () => void;
+  onSuccess: () => void;
+}
+
+const CreateTrayModal = ({ onClose, onSuccess }: CreateTrayModalProps) => {
+  const [newBoxId, setNewBoxId]   = useState('');
+  const [operator, setOperator]   = useState('');
+  const [description, setDescription] = useState('');
+  const [sources, setSources]     = useState<SourceRow[]>([{ sourceBoxId: '', amountTaken: '' }]);
+  const [salvando, setSalvando]   = useState(false);
+
+  const addSource = () => setSources((prev) => [...prev, { sourceBoxId: '', amountTaken: '' }]);
+  const removeSource = (i: number) => setSources((prev) => prev.filter((_, idx) => idx !== i));
+  const updateSource = (i: number, field: keyof SourceRow, value: string) =>
+    setSources((prev) => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
+
+  const totalAmount = sources.reduce((sum, s) => sum + (parseInt(s.amountTaken, 10) || 0), 0);
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const cleanId = newBoxId.trim().toUpperCase();
+    if (!cleanId || !operator.trim()) return;
+
+    const parsedSources = sources.map((s) => ({
+      sourceBoxId: s.sourceBoxId.trim().toUpperCase(),
+      amountTaken: parseInt(s.amountTaken, 10),
+    }));
+
+    if (parsedSources.some((s) => !s.sourceBoxId || isNaN(s.amountTaken) || s.amountTaken <= 0)) {
+      alert('Preencha todos os campos de origem com valores válidos.');
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      const payload: CreateTrayFromSourcesInput = {
+        newBoxId: cleanId,
+        operator: operator.trim(),
+        description: description.trim() || undefined,
+        sources: parsedSources,
+      };
+      const res = await window.api.createTrayFromSources(payload);
+      if (res.success) {
+        const data = res.data as any;
+        alert(
+          `Lote ${cleanId} criado com ${data.totalAmount} unidades.\n` +
+          data.sources.map((s: any) =>
+            `• ${s.sourceBoxId}: −${s.amountTaken} un. (saldo: ${s.saldoRestante}${s.esgotada ? ' — ESGOTADA' : ''})`
+          ).join('\n')
+        );
+        onSuccess();
+        onClose();
+      } else {
+        alert('Erro: ' + res.error);
+      }
+    } catch {
+      alert('Erro de comunicação com o sistema.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+      <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
+        <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
+          <div>
+            <p className="text-xs font-semibold text-violet-500 uppercase tracking-widest mb-0.5">Split / Merge</p>
+            <h2 className="text-base font-bold text-zinc-900">Criar Lote a partir de Fontes</h2>
+            <p className="text-xs text-zinc-400 mt-0.5">Fracione ou una caixas para formar um novo lote</p>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+            <IconX />
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
+
+          {/* ID da nova bandeja */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+              ID da Nova Caixa <span className="normal-case font-semibold text-violet-500">(obrigatório)</span>
+            </label>
+            <input required type="text" value={newBoxId}
+              onChange={(e) => setNewBoxId(e.target.value.toUpperCase())}
+              placeholder="Ex: BDJ0099"
+              className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-violet-400 focus:bg-white outline-none text-sm font-mono text-zinc-700 transition-colors" />
+          </div>
+
+          {/* Operador */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Operador</label>
+            <input required type="text" value={operator}
+              onChange={(e) => setOperator(e.target.value)}
+              placeholder="Nome do operador"
+              className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-violet-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors" />
+          </div>
+
+          {/* Fontes */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
+                Fontes <span className="normal-case font-normal text-zinc-300">({sources.length})</span>
+              </label>
+              <button type="button" onClick={addSource}
+                className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-violet-700 bg-violet-50 hover:bg-violet-100 border border-violet-200 rounded-lg transition-colors">
+                <IconPlus /> Adicionar fonte
+              </button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {sources.map((src, i) => (
+                <div key={i} className="flex gap-2 items-start">
+                  <div className="flex-[2]">
+                    {i === 0 && <p className="text-[10px] text-zinc-400 font-semibold uppercase mb-1">Código da Caixa Origem</p>}
+                    <input required type="text" value={src.sourceBoxId}
+                      onChange={(e) => updateSource(i, 'sourceBoxId', e.target.value.toUpperCase())}
+                      placeholder="Ex: BDJ0001"
+                      className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-violet-400 focus:bg-white outline-none text-sm font-mono text-zinc-700 transition-colors" />
+                  </div>
+                  <div className="flex-1">
+                    {i === 0 && <p className="text-[10px] text-zinc-400 font-semibold uppercase mb-1">Qtd. a retirar</p>}
+                    <input required type="number" min={1} value={src.amountTaken}
+                      onChange={(e) => updateSource(i, 'amountTaken', e.target.value)}
+                      placeholder="Qtd."
+                      className="w-full px-3 py-2 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-violet-400 focus:bg-white outline-none text-sm font-bold text-zinc-700 transition-colors" />
+                  </div>
+                  {sources.length > 1 && (
+                    <button type="button" onClick={() => removeSource(i)}
+                      className={`flex-shrink-0 p-2 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors ${i === 0 ? 'mt-5' : ''}`}>
+                      <IconTrash />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {/* Resumo do total */}
+            {totalAmount > 0 && (
+              <div className="mt-3 flex items-center justify-between bg-violet-50 border border-violet-200 rounded-lg px-4 py-2.5">
+                <span className="text-xs font-semibold text-violet-600 uppercase tracking-widest">Total do novo lote</span>
+                <span className="text-sm font-black text-violet-800">{totalAmount} un.</span>
+              </div>
+            )}
+          </div>
+
+          {/* Observação */}
+          <div>
+            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+              Observação <span className="normal-case font-normal text-zinc-300">(opcional)</span>
+            </label>
+            <textarea value={description} onChange={(e) => setDescription(e.target.value)}
+              placeholder="Ex: Reaproveitamento de sobras do lote anterior"
+              rows={2}
+              className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-violet-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors resize-none" />
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button type="button" onClick={onClose}
+              className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors">
+              Cancelar
+            </button>
+            <button type="submit" disabled={salvando || totalAmount === 0}
+              className="flex-[2] py-2.5 text-sm font-bold text-white bg-violet-600 hover:bg-violet-700 disabled:opacity-40 rounded-lg transition-colors shadow-sm">
+              {salvando ? 'Criando lote...' : `Criar Lote (${totalAmount} un.)`}
+            </button>
+          </div>
+
+        </form>
+      </div>
+    </div>
+  );
+};
+
+// ─── Painel de Linhagem ───────────────────────────────────────────────────────
+
+const LineagePanel = ({ boxId }: { boxId: string }) => {
+  const [lineage, setLineage]   = useState<BoxLineage | null>(null);
+  const [loading, setLoading]   = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    window.api.getBoxLineage(boxId).then((res) => {
+      if (res.success && res.data) setLineage(res.data);
+    }).finally(() => setLoading(false));
+  }, [boxId]);
+
+  const hasData = lineage && (lineage.ascendentes.length > 0 || lineage.descendentes.length > 0);
+
+  if (loading) return (
+    <div className="bg-white rounded-xl border border-zinc-200 px-5 py-6 flex items-center gap-3">
+      <div className="w-4 h-4 border-2 border-zinc-200 border-t-violet-600 rounded-full animate-spin" />
+      <span className="text-sm text-zinc-400">Carregando linhagem...</span>
+    </div>
+  );
+
+  if (!hasData) return null;
+
+  const formatDate = (ts: any) => {
+    if (!ts) return '—';
+    const ms = ts instanceof Date ? ts.getTime() : (typeof ts === 'number' ? ts * 1000 : null);
+    if (!ms) return '—';
+    return new Date(ms).toLocaleString('pt-BR');
+  };
+
+  return (
+    <div className="bg-white rounded-xl border border-zinc-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-zinc-100 flex items-center gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 text-violet-500">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+        </svg>
+        <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">Rastreabilidade de Lote</p>
+      </div>
+
+      {lineage!.ascendentes.length > 0 && (
+        <div className="px-5 py-4 border-b border-zinc-100">
+          <p className="text-[10px] font-semibold text-violet-600 uppercase tracking-widest mb-3">
+            Formado a partir de ({lineage!.ascendentes.length} {lineage!.ascendentes.length === 1 ? 'fonte' : 'fontes'})
+          </p>
+          <div className="flex flex-col gap-2">
+            {lineage!.ascendentes.map((a) => (
+              <div key={a.compositionId} className="flex items-center justify-between bg-violet-50 border border-violet-100 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-violet-800">{a.sourceBoxId}</span>
+                  {a.sourceModel && <span className="text-xs text-violet-500">{a.sourceModel}</span>}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-violet-700 bg-violet-100 px-2 py-0.5 rounded-full">
+                    −{a.amountTaken} un.
+                  </span>
+                  <span className="text-xs text-zinc-400">{formatDate(a.createdAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {lineage!.descendentes.length > 0 && (
+        <div className="px-5 py-4">
+          <p className="text-[10px] font-semibold text-orange-600 uppercase tracking-widest mb-3">
+            Contribuiu para ({lineage!.descendentes.length} {lineage!.descendentes.length === 1 ? 'lote' : 'lotes'})
+          </p>
+          <div className="flex flex-col gap-2">
+            {lineage!.descendentes.map((d) => (
+              <div key={d.compositionId} className="flex items-center justify-between bg-orange-50 border border-orange-100 rounded-lg px-3 py-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-sm font-bold text-orange-800">{d.newBoxId}</span>
+                  {d.destModel && <span className="text-xs text-orange-500">{d.destModel}</span>}
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                    +{d.amountTaken} un.
+                  </span>
+                  <span className="text-xs text-zinc-400">{formatDate(d.createdAt)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ─── MetricCard ───────────────────────────────────────────────────────────────
 
 function MetricCard({ label, value, unit }: { label: string; value: string | number; unit: string }) {
   return (
@@ -329,42 +668,45 @@ function MetricCard({ label, value, unit }: { label: string; value: string | num
   );
 }
 
-// ─── Inventory ────────────────────────────────────────────────────────────────
+// ─── Inventory (página principal) ─────────────────────────────────────────────
 
 const Inventory = () => {
-  const [barcode, setBarcode] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [modalAberto, setModalAberto] = useState(false);
+  const [barcode, setBarcode]           = useState('');
+  const inputRef                        = useRef<HTMLInputElement>(null);
+  const [modalAberto, setModalAberto]   = useState(false);
   const [batchModalAberto, setBatchModalAberto] = useState(false);
-  const [scanModalAberto, setScanModalAberto] = useState(false);
-  const [modalMode, setModalMode] = useState<'start' | 'finish'>('start');
-  const [caixa, setCaixa] = useState<any>(null);
-  const [boxHistory, setBoxHistory] = useState<any[]>([]);
-  const [buscando, setBuscando] = useState(false);
-  const [excluindo, setExcluindo] = useState(false);
-  const [deleteModalAberto, setDeleteModalAberto] = useState(false);
+  const [scanModalAberto, setScanModalAberto]   = useState(false);
+  const [modalMode, setModalMode]       = useState<'start' | 'finish'>('start');
+  const [caixa, setCaixa]               = useState<any>(null);
+  const [boxHistory, setBoxHistory]     = useState<any[]>([]);
+  const [buscando, setBuscando]         = useState(false);
+  const [excluindo, setExcluindo]       = useState(false);
+  const [deleteModalAberto, setDeleteModalAberto]   = useState(false);
   const [deletePrefixSelecionado, setDeletePrefixSelecionado] = useState<string>('ALL');
-  const [excluindoLote, setExcluindoLote] = useState(false);
+  const [excluindoLote, setExcluindoLote]           = useState(false);
   const [expedicaoModalAberto, setExpedicaoModalAberto] = useState(false);
-  const [expFilial, setExpFilial] = useState('');
-  const [expOperador, setExpOperador] = useState('');
+  const [expFilial, setExpFilial]       = useState('');
+  const [expOperador, setExpOperador]   = useState('');
   const [expDescricao, setExpDescricao] = useState('');
-  const [expedindo, setExpedindo] = useState(false);
-  const [bdjModalAberto, setBdjModalAberto] = useState(false);
-  const [bdjCodigo, setBdjCodigo] = useState('');
-  const [bdjOperador, setBdjOperador] = useState('');
-  const [consumindoBdj, setConsumindoBdj] = useState(false);
+  const [expedindo, setExpedindo]       = useState(false);
+  const [createTrayModalAberto, setCreateTrayModalAberto] = useState(false);
 
-  useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+  useEffect(() => { inputRef.current?.focus(); }, []);
 
-  // Detecta etapa em andamento pelo registro mais recente sem endTime
-  // Usa findLast (do fim) porque o histórico é ordenado por startTime ASC
   const openRecord = [...boxHistory].reverse().find(
     (r: any) => r.endTime === null || r.endTime === undefined
   ) ?? null;
   const hasOpenStep = openRecord !== null;
+
+  const reloadBoxData = async (id: string) => {
+    const [boxRes, histRes] = await Promise.all([
+      window.api.getBox(id),
+      window.api.getBoxHistory(id),
+    ]);
+    if (boxRes.success && boxRes.data) setCaixa(boxRes.data);
+    if (histRes.success) setBoxHistory(histRes.data as any[]);
+    return boxRes.success && !!boxRes.data;
+  };
 
   const handleSearch = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -373,18 +715,8 @@ const Inventory = () => {
     setCaixa(null);
     setBoxHistory([]);
     try {
-      const [boxRes, histRes] = await Promise.all([
-        (window as any).api.getBox(barcode.toUpperCase()),
-        (window as any).api.getBoxHistory(barcode.toUpperCase()),
-      ]);
-      if (boxRes.success && boxRes.data) {
-        setCaixa(boxRes.data);
-      } else {
-        alert(boxRes.error || 'Caixa não encontrada!');
-      }
-      if (histRes.success) {
-        setBoxHistory(histRes.data);
-      }
+      const found = await reloadBoxData(barcode.trim().toUpperCase());
+      if (!found) alert('Caixa não encontrada!');
     } catch {
       alert('Erro de comunicação com o banco de dados.');
     } finally {
@@ -399,41 +731,13 @@ const Inventory = () => {
     if (!window.confirm(`Excluir permanentemente "${caixa.id}" e todo o seu histórico?`)) return;
     setExcluindo(true);
     try {
-      const res = await (window as any).api.deleteBox(caixa.id);
-      if (res.success) {
-        setCaixa(null);
-        setBoxHistory([]);
-      } else {
-        alert('Erro ao excluir: ' + res.error);
-      }
+      const res = await window.api.deleteBox(caixa.id);
+      if (res.success) { setCaixa(null); setBoxHistory([]); }
+      else alert('Erro ao excluir: ' + res.error);
     } catch {
       alert('Erro de comunicação com o sistema.');
     } finally {
       setExcluindo(false);
-    }
-  };
-
-  const handleConsumirBdj = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    if (!caixa) return;
-    setConsumindoBdj(true);
-    try {
-      const res = await (window as any).api.consumirBdj(bdjCodigo.trim().toUpperCase(), caixa.id, bdjOperador.trim());
-      if (res.success) {
-        setCaixa((prev: any) => ({ ...prev, amount: res.data.destino.novoAmount }));
-        setBdjModalAberto(false);
-        setBdjCodigo(''); setBdjOperador('');
-        (window as any).api.getBoxHistory(caixa.id).then((r: any) => {
-          if (r.success) setBoxHistory(r.data);
-        });
-        alert(`Bandeja ${res.data.bdj.id} consumida. +${res.data.bdj.amountConsumed} unidades → total: ${res.data.destino.novoAmount}`);
-      } else {
-        alert('Erro: ' + res.error);
-      }
-    } catch {
-      alert('Erro de comunicação com o sistema.');
-    } finally {
-      setConsumindoBdj(false);
     }
   };
 
@@ -442,7 +746,7 @@ const Inventory = () => {
     if (!caixa) return;
     setExpedindo(true);
     try {
-      const res = await (window as any).api.expedicao({
+      const res = await window.api.expedicao({
         boxId: caixa.id,
         operator: expOperador.trim(),
         filialDestino: expFilial.trim(),
@@ -452,9 +756,7 @@ const Inventory = () => {
         setCaixa((prev: any) => ({ ...prev, location: expFilial.trim(), operator: expOperador.trim() }));
         setExpedicaoModalAberto(false);
         setExpFilial(''); setExpOperador(''); setExpDescricao('');
-        (window as any).api.getBoxHistory(caixa.id).then((r: any) => {
-          if (r.success) setBoxHistory(r.data);
-        });
+        window.api.getBoxHistory(caixa.id).then((r) => { if (r.success) setBoxHistory(r.data as any[]); });
       } else {
         alert('Erro: ' + res.error);
       }
@@ -472,12 +774,11 @@ const Inventory = () => {
     if (!window.confirm(`Confirma exclusão permanente de ${label}?\n\nEssa ação não pode ser desfeita.`)) return;
     setExcluindoLote(true);
     try {
-      const res = await (window as any).api.deleteManyBoxes(deletePrefixSelecionado);
+      const res = await window.api.deleteManyBoxes(deletePrefixSelecionado);
       if (res.success) {
         alert(`${res.data} caixa(s) excluída(s) com sucesso.`);
         setDeleteModalAberto(false);
-        setCaixa(null);
-        setBoxHistory([]);
+        setCaixa(null); setBoxHistory([]);
       } else {
         alert('Erro: ' + res.error);
       }
@@ -488,10 +789,7 @@ const Inventory = () => {
     }
   };
 
-  const openModal = (mode: 'start' | 'finish') => {
-    setModalMode(mode);
-    setScanModalAberto(true);
-  };
+  const openModal = (mode: 'start' | 'finish') => { setModalMode(mode); setScanModalAberto(true); };
 
   const stepColors = caixa
     ? (STEP_COLORS[caixa.step as ProductionStep] ?? { dot: 'bg-zinc-400', badge: 'bg-zinc-100 text-zinc-600 ring-zinc-200', icon: 'bg-zinc-100 text-zinc-500' })
@@ -511,58 +809,12 @@ const Inventory = () => {
       <NewBox isOpen={modalAberto} onClose={() => setModalAberto(false)} />
       <BatchBox isOpen={batchModalAberto} onClose={() => setBatchModalAberto(false)} />
 
-      {/* Modal Consumir BDJ */}
-      {bdjModalAberto && caixa && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-          <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
-            <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
-              <div>
-                <p className="text-xs font-semibold text-orange-400 uppercase tracking-widest mb-0.5">Soldagem</p>
-                <h2 className="text-base font-bold text-zinc-900">Adicionar Bandeja</h2>
-                <p className="text-xs text-zinc-400 mt-0.5 font-mono">{caixa.id} — {caixa.amount ?? 0} un. acumuladas</p>
-              </div>
-              <button onClick={() => setBdjModalAberto(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <form onSubmit={handleConsumirBdj} className="px-6 py-5 flex flex-col gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
-                  Código da Bandeja <span className="normal-case font-semibold text-orange-500">(obrigatório)</span>
-                </label>
-                <input
-                  required
-                  type="text"
-                  value={bdjCodigo}
-                  onChange={(e) => setBdjCodigo(e.target.value.toUpperCase())}
-                  placeholder="Ex: BDJ0001"
-                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-orange-400 focus:bg-white outline-none text-sm font-mono text-zinc-700 transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Operador</label>
-                <input
-                  required
-                  type="text"
-                  value={bdjOperador}
-                  onChange={(e) => setBdjOperador(e.target.value)}
-                  placeholder="Nome do operador"
-                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-orange-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors"
-                />
-              </div>
-              <div className="flex gap-3 pt-1">
-                <button type="button" onClick={() => setBdjModalAberto(false)} className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors">
-                  Cancelar
-                </button>
-                <button type="submit" disabled={consumindoBdj} className="flex-[2] py-2.5 text-sm font-bold text-white bg-orange-500 hover:bg-orange-600 disabled:opacity-40 rounded-lg transition-colors shadow-sm">
-                  {consumindoBdj ? 'Consumindo...' : 'Confirmar Consumo'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
+      {/* Modal Criar Lote (Split/Merge) */}
+      {createTrayModalAberto && (
+        <CreateTrayModal
+          onClose={() => setCreateTrayModalAberto(false)}
+          onSuccess={() => { if (caixa) reloadBoxData(caixa.id); }}
+        />
       )}
 
       {/* Modal Expedição */}
@@ -575,13 +827,8 @@ const Inventory = () => {
                 <h2 className="text-base font-bold text-zinc-900">Expedir Caixa</h2>
                 <p className="text-xs text-zinc-400 mt-0.5 font-mono">{caixa.id}</p>
               </div>
-              <button
-                onClick={() => setExpedicaoModalAberto(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
+              <button onClick={() => setExpedicaoModalAberto(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+                <IconX />
               </button>
             </div>
             <form onSubmit={handleExpedicao} className="px-6 py-5 flex flex-col gap-4">
@@ -589,51 +836,31 @@ const Inventory = () => {
                 <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
                   Filial de Destino <span className="normal-case font-semibold text-indigo-500">(obrigatório)</span>
                 </label>
-                <input
-                  required
-                  type="text"
-                  value={expFilial}
-                  onChange={(e) => setExpFilial(e.target.value)}
+                <input required type="text" value={expFilial} onChange={(e) => setExpFilial(e.target.value)}
                   placeholder="Ex: Filial São Paulo"
-                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-indigo-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors"
-                />
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-indigo-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Operador</label>
-                <input
-                  required
-                  type="text"
-                  value={expOperador}
-                  onChange={(e) => setExpOperador(e.target.value)}
+                <input required type="text" value={expOperador} onChange={(e) => setExpOperador(e.target.value)}
                   placeholder="Nome do operador"
-                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-indigo-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors"
-                />
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-indigo-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
                   Observação <span className="normal-case font-normal text-zinc-300">(opcional)</span>
                 </label>
-                <textarea
-                  value={expDescricao}
-                  onChange={(e) => setExpDescricao(e.target.value)}
-                  placeholder="Ex: Envio urgente, NF 12345..."
-                  rows={2}
-                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-indigo-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors resize-none"
-                />
+                <textarea value={expDescricao} onChange={(e) => setExpDescricao(e.target.value)}
+                  placeholder="Ex: Envio urgente, NF 12345..." rows={2}
+                  className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-indigo-400 focus:bg-white outline-none text-sm text-zinc-700 transition-colors resize-none" />
               </div>
               <div className="flex gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setExpedicaoModalAberto(false)}
-                  className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors"
-                >
+                <button type="button" onClick={() => setExpedicaoModalAberto(false)}
+                  className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors">
                   Cancelar
                 </button>
-                <button
-                  type="submit"
-                  disabled={expedindo}
-                  className="flex-[2] py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 rounded-lg transition-colors shadow-sm"
-                >
+                <button type="submit" disabled={expedindo}
+                  className="flex-[2] py-2.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 rounded-lg transition-colors shadow-sm">
                   {expedindo ? 'Expedindo...' : 'Confirmar Expedição'}
                 </button>
               </div>
@@ -651,13 +878,8 @@ const Inventory = () => {
                 <p className="text-xs font-semibold text-red-400 uppercase tracking-widest mb-0.5">Ação destrutiva</p>
                 <h2 className="text-base font-bold text-zinc-900">Excluir Caixas em Massa</h2>
               </div>
-              <button
-                onClick={() => setDeleteModalAberto(false)}
-                className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors"
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-                </svg>
+              <button onClick={() => setDeleteModalAberto(false)} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+                <IconX />
               </button>
             </div>
             <div className="px-6 py-5 flex flex-col gap-4">
@@ -671,37 +893,24 @@ const Inventory = () => {
                 <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Grupo a excluir</label>
                 <div className="flex flex-col gap-1.5">
                   {DELETE_PREFIX_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.value}
-                      type="button"
-                      onClick={() => setDeletePrefixSelecionado(opt.value)}
+                    <button key={opt.value} type="button" onClick={() => setDeletePrefixSelecionado(opt.value)}
                       className={`w-full px-4 py-2.5 rounded-lg text-sm font-semibold text-left border transition-colors ${
                         deletePrefixSelecionado === opt.value
-                          ? opt.value === 'ALL'
-                            ? 'bg-red-600 text-white border-red-600'
-                            : 'bg-zinc-800 text-white border-zinc-800'
+                          ? opt.value === 'ALL' ? 'bg-red-600 text-white border-red-600' : 'bg-zinc-800 text-white border-zinc-800'
                           : 'bg-white text-zinc-600 border-zinc-200 hover:bg-zinc-50'
-                      }`}
-                    >
+                      }`}>
                       {opt.label}
                     </button>
                   ))}
                 </div>
               </div>
               <div className="flex gap-3 pt-1">
-                <button
-                  type="button"
-                  onClick={() => setDeleteModalAberto(false)}
-                  className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors"
-                >
+                <button type="button" onClick={() => setDeleteModalAberto(false)}
+                  className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors">
                   Cancelar
                 </button>
-                <button
-                  type="button"
-                  onClick={handleDeleteLote}
-                  disabled={excluindoLote}
-                  className="flex-[2] py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 rounded-lg transition-colors"
-                >
+                <button type="button" onClick={handleDeleteLote} disabled={excluindoLote}
+                  className="flex-[2] py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 disabled:opacity-40 rounded-lg transition-colors">
                   {excluindoLote ? 'Excluindo...' : 'Confirmar Exclusão'}
                 </button>
               </div>
@@ -720,9 +929,8 @@ const Inventory = () => {
           onSuccess={(updated) => {
             setCaixa(updated);
             setScanModalAberto(false);
-            // Recarrega histórico para refletir o novo status
-            (window as any).api.getBoxHistory(updated.id).then((res: any) => {
-              if (res.success) setBoxHistory(res.data);
+            window.api.getBoxHistory(updated.id).then((res) => {
+              if (res.success) setBoxHistory(res.data as any[]);
             });
           }}
         />
@@ -730,7 +938,7 @@ const Inventory = () => {
 
       <div className="max-w-5xl mx-auto px-8 py-8">
 
-        {/* ── Breadcrumb ── */}
+        {/* Breadcrumb */}
         <div className="flex items-center gap-1.5 text-xs text-zinc-400 mb-6">
           <span>Estoque</span>
           <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3 h-3">
@@ -739,44 +947,39 @@ const Inventory = () => {
           <span className="text-zinc-600 font-medium">Consulta & Movimentação</span>
         </div>
 
-        {/* ── Cabeçalho ── */}
+        {/* Cabeçalho */}
         <div className="flex items-start justify-between mb-8">
           <div>
             <h1 className="text-2xl font-bold text-zinc-900">Estoque & Produção</h1>
             <p className="text-sm text-zinc-500 mt-1">Consulte e movimente caixas por código de barras</p>
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={() => setDeleteModalAberto(true)}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-              </svg>
-              Excluir Lote
+            <button onClick={() => setDeleteModalAberto(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-red-600 bg-white border border-red-200 hover:bg-red-50 rounded-lg transition-colors">
+              <IconTrash /> Excluir Lote
             </button>
-            <button
-              onClick={() => setBatchModalAberto(true)}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors"
-            >
+            <button onClick={() => setCreateTrayModalAberto(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-violet-700 bg-white border border-violet-200 hover:bg-violet-50 rounded-lg transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 21 3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+              </svg>
+              Split / Merge
+            </button>
+            <button onClick={() => setBatchModalAberto(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
               </svg>
               Lote
             </button>
-            <button
-              onClick={() => setModalAberto(true)}
-              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Nova Caixa
+            <button onClick={() => setModalAberto(true)}
+              className="flex items-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors shadow-sm">
+              <IconPlus /> Nova Caixa
             </button>
           </div>
         </div>
 
-        {/* ── Barra de busca ── */}
+        {/* Barra de busca */}
         <div className="bg-white rounded-xl border border-zinc-200 p-5 mb-6">
           <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-3">Buscar Caixa</p>
           <form onSubmit={handleSearch} className="flex gap-3">
@@ -786,28 +989,19 @@ const Inventory = () => {
                   <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
                 </svg>
               </div>
-              <input
-                ref={inputRef}
-                type="text"
-                value={barcode}
-                onChange={(e) => setBarcode(e.target.value)}
+              <input ref={inputRef} type="text" value={barcode} onChange={(e) => setBarcode(e.target.value)}
                 placeholder="Bipar ou digitar código da caixa..."
                 className="w-full pl-9 pr-4 py-2.5 text-sm font-mono uppercase bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:border-blue-400 focus:bg-white transition-colors text-zinc-700 placeholder:normal-case placeholder:font-sans"
-                disabled={buscando}
-                autoComplete="off"
-              />
+                disabled={buscando} autoComplete="off" />
             </div>
-            <button
-              type="submit"
-              disabled={buscando || !barcode.trim()}
-              className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded-lg transition-colors"
-            >
+            <button type="submit" disabled={buscando || !barcode.trim()}
+              className="px-5 py-2.5 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-40 rounded-lg transition-colors">
               {buscando ? 'Buscando...' : 'Buscar'}
             </button>
           </form>
         </div>
 
-        {/* ── Estado vazio / spinner ── */}
+        {/* Estado vazio */}
         {!caixa && (
           <div className="bg-white rounded-xl border border-zinc-200 py-16 flex flex-col items-center justify-center text-center">
             {buscando ? (
@@ -866,14 +1060,9 @@ const Inventory = () => {
                       {caixa.date ? new Date(caixa.date).toLocaleDateString('pt-BR') : '—'}
                     </p>
                   </div>
-                  <button
-                    onClick={handleDelete}
-                    disabled={excluindo}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors disabled:opacity-40"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-3.5 h-3.5">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
-                    </svg>
+                  <button onClick={handleDelete} disabled={excluindo}
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition-colors disabled:opacity-40">
+                    <IconTrash />
                     {excluindo ? 'Excluindo...' : 'Excluir'}
                   </button>
                 </div>
@@ -931,7 +1120,7 @@ const Inventory = () => {
               </div>
             )}
 
-            {/* ── Botão de ação principal ── */}
+            {/* Ações principais */}
             {caixa.step === 'Concluida' ? (
               <div className="flex items-center gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-5 py-4">
                 <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
@@ -946,42 +1135,25 @@ const Inventory = () => {
               </div>
             ) : hasOpenStep ? (
               <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => openModal('finish')}
-                  className="w-full py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
-                >
+                <button onClick={() => openModal('finish')}
+                  className="w-full py-3 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
                   </svg>
                   Finalizar Etapa — {openRecord?.step}
                 </button>
-                {openRecord?.step === 'Soldagem' && (
-                  <button
-                    onClick={() => setBdjModalAberto(true)}
-                    className="w-full py-2.5 text-sm font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-xl transition-colors flex items-center justify-center gap-2"
-                  >
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    Adicionar Bandeja (BDJ)
-                  </button>
-                )}
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                <button
-                  onClick={() => openModal('start')}
-                  className="w-full py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2"
-                >
+                <button onClick={() => openModal('start')}
+                  className="w-full py-3 text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 rounded-xl transition-colors shadow-sm flex items-center justify-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z" />
                   </svg>
                   Iniciar Próxima Etapa
                 </button>
-                <button
-                  onClick={() => setExpedicaoModalAberto(true)}
-                  className="w-full py-2.5 text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors flex items-center justify-center gap-2"
-                >
+                <button onClick={() => setExpedicaoModalAberto(true)}
+                  className="w-full py-2.5 text-sm font-semibold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-xl transition-colors flex items-center justify-center gap-2">
                   <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-4 h-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M6 12 3.269 3.125A59.769 59.769 0 0 1 21.485 12 59.768 59.768 0 0 1 3.27 20.875L5.999 12Zm0 0h7.5" />
                   </svg>
@@ -989,6 +1161,9 @@ const Inventory = () => {
                 </button>
               </div>
             )}
+
+            {/* Rastreabilidade */}
+            <LineagePanel boxId={caixa.id} />
 
             {/* Histórico de etapas */}
             {boxHistory.length > 0 && (
@@ -1011,7 +1186,7 @@ const Inventory = () => {
                     const endMs   = record.endTime
                       ? (typeof record.endTime === 'number' ? record.endTime * 1000 : record.endTime.getTime())
                       : null;
-                    const isOpen  = record.stepStatus === 'OPEN' || record.endTime === null;
+                    const isOpen = record.stepStatus === 'OPEN' || record.endTime === null;
                     return (
                       <div key={record.id} className="px-5 py-3 grid grid-cols-[24px_1fr_1fr_1fr_auto] gap-x-4 items-center">
                         <span className="text-xs font-bold text-zinc-300 text-right">{index + 1}</span>
@@ -1049,7 +1224,6 @@ const Inventory = () => {
 
           </div>
         )}
-
       </div>
     </div>
   );

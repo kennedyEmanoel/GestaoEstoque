@@ -1,6 +1,7 @@
-import { app, BrowserWindow, Menu } from 'electron'; // <-- Adicionado o Menu aqui
+import { app, BrowserWindow, Menu } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
+import { initDbWorker } from './main/worker/dbClient';
 import { setupBoxControllers } from './main/controllers/boxController';
 import { setupDashboardControllers } from './main/controllers/dashboardController';
 
@@ -22,9 +23,6 @@ const createWindow = () => {
     },
   });
 
-  setupBoxControllers();
-  setupDashboardControllers();
-
   if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
     mainWindow.loadURL(MAIN_WINDOW_VITE_DEV_SERVER_URL);
   } else {
@@ -32,10 +30,17 @@ const createWindow = () => {
       path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
     );
   }
-
 };
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  const dbPath = path.join(app.getPath('userData'), 'bd_estoque.sqlite');
+  initDbWorker(dbPath);
+
+  setupBoxControllers();
+  setupDashboardControllers();
+
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
