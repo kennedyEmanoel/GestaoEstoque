@@ -10,18 +10,7 @@ import { FuseV1Options, FuseVersion } from '@electron/fuses';
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: {
-      // Desempacota o worker e o módulo nativo — não podem ser lidos de dentro do .asar
-      unpack: '**/{dbWorker.js,better_sqlite3.node}',
-      unpackDir: 'node_modules/better-sqlite3',
-    },
-    // O VitePlugin define ignore para aceitar apenas /.vite; aqui expandimos para incluir o módulo nativo
-    ignore: (file: string) => {
-      if (!file) return false;
-      if (file.startsWith('/.vite')) return false;
-      if (file.startsWith('/node_modules/better-sqlite3')) return false;
-      return true;
-    },
+    asar: true,
   },
   rebuildConfig: {},
   makers: [
@@ -33,11 +22,8 @@ const config: ForgeConfig = {
   plugins: [
     new AutoUnpackNativesPlugin({}),
     new VitePlugin({
-      // `build` can specify multiple entry builds, which can be Main process, Preload scripts, Worker process, etc.
-      // If you are familiar with Vite configuration, it will look really familiar.
       build: [
         {
-          // `entry` is just an alias for `build.lib.entry` in the corresponding file of `config`.
           entry: 'src/main.ts',
           config: 'vite.main.config.ts',
           target: 'main',
@@ -47,11 +33,6 @@ const config: ForgeConfig = {
           config: 'vite.preload.config.ts',
           target: 'preload',
         },
-        {
-          entry: 'src/main/worker/dbWorker.ts',
-          config: 'vite.worker.config.ts',
-          target: 'main',
-        },
       ],
       renderer: [
         {
@@ -60,8 +41,6 @@ const config: ForgeConfig = {
         },
       ],
     }),
-    // Fuses are used to enable/disable various Electron functionality
-    // at package time, before code signing the application
     new FusesPlugin({
       version: FuseVersion.V1,
       [FuseV1Options.RunAsNode]: false,

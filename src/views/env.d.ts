@@ -68,12 +68,16 @@ interface ExpedicaoInput {
   description?: string;
 }
 
-interface FinishInsumoStepInput {
+interface InsumoSource {
   boxId: string;
-  operator: string;
+  amount: number;
   stockLocation: BoxLocation;
+}
+
+interface FinishInsumoStepInput {
+  sources: InsumoSource[];
+  operator: string;
   destinationId: string;
-  producedAmount: number;
   destinationModel?: string | null;
   destinationStep?: ProductionStep;
   description?: string;

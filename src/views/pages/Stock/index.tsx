@@ -120,29 +120,46 @@ interface ScanModalProps {
   onSuccess: (updated: any) => void;
 }
 
+interface InsumoSourceRow {
+  boxId:         string;
+  amount:        string;
+  stockLocation: BoxLocation;
+}
+
 const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: ScanModalProps) => {
-  const isFinish  = mode === 'finish';
-  const isInsumo  = (caixa.id as string).startsWith('INS');
+  const isFinish = mode === 'finish';
+  const isInsumo = (caixa.id as string).startsWith('INS');
 
   const montagemConcluida = boxHistory.some(
     (r: any) => r.step === 'Montagem' && r.stepStatus === 'CLOSED' && r.typeOperation === 'SCAN_END'
   );
   const rawNextSteps = !isFinish ? getNextSteps(caixa.id, caixa.step as ProductionStep) : [];
-  const nextSteps: ProductionStep[] = (caixa.isInsumo && !montagemConcluida)
-    ? ['Montagem']
-    : rawNextSteps;
+  const nextSteps: ProductionStep[] = (caixa.isInsumo && !montagemConcluida) ? ['Montagem'] : rawNextSteps;
 
   const [selectedStep, setSelectedStep] = useState<ProductionStep>(nextSteps[0]);
-  const [location, setLocation] = useState<BoxLocation>(
+  const [location, setLocation]         = useState<BoxLocation>(
     isFinish ? 'ESTOQUE' : (LOCATIONS_BY_STEP[nextSteps[0]] ?? [])[0] ?? 'ESTOQUE'
   );
-  const [operator, setOperator]       = useState('');
-  const [description, setDescription] = useState('');
-  // campos exclusivos do fluxo INS ao finalizar
-  const [destinationId, setDestinationId]       = useState('');
-  const [producedAmount, setProducedAmount]      = useState('');
-  const [destinationModel, setDestinationModel] = useState('');
-  const [salvando, setSalvando] = useState(false);
+  const [operator, setOperator]         = useState('');
+  const [description, setDescription]   = useState('');
+  const [salvando, setSalvando]         = useState(false);
+
+  // ── estado exclusivo do fluxo INS ────────────────────────────────────────
+  const [destinationId, setDestinationId]         = useState('');
+  const [destinationModel, setDestinationModel]   = useState('');
+  // fontes: começa com o insumo atual já preenchido
+  const [sources, setSources] = useState<InsumoSourceRow[]>([
+    { boxId: caixa.id, amount: '', stockLocation: 'ESTOQUE' },
+  ]);
+
+  const totalProduced = sources.reduce((s, r) => s + (parseInt(r.amount, 10) || 0), 0);
+
+  const addSource = () =>
+    setSources((prev) => [...prev, { boxId: '', amount: '', stockLocation: 'ESTOQUE' }]);
+  const removeSource = (i: number) =>
+    setSources((prev) => prev.filter((_, idx) => idx !== i));
+  const updateSource = (i: number, field: keyof InsumoSourceRow, value: string) =>
+    setSources((prev) => prev.map((s, idx) => idx === i ? { ...s, [field]: value } : s));
 
   const availableLocations: BoxLocation[] = isFinish
     ? STOCK_LOCATIONS
@@ -153,59 +170,69 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
     setLocation((LOCATIONS_BY_STEP[step] ?? ['ESTOQUE'])[0]);
   };
 
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmitInsumo = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!operator.trim()) return;
+    const cleanDst = destinationId.trim().toUpperCase();
+    if (!cleanDst) { alert('Informe o ID da caixa de destino.'); return; }
+    if (totalProduced <= 0) { alert('Informe ao menos uma quantidade produzida.'); return; }
+
+    const parsedSources = sources.map((s) => ({
+      boxId:         s.boxId.trim().toUpperCase(),
+      amount:        parseInt(s.amount, 10),
+      stockLocation: s.stockLocation,
+    }));
+    if (parsedSources.some((s) => !s.boxId || isNaN(s.amount) || s.amount <= 0)) {
+      alert('Preencha todos os insumos com ID e quantidade válidos.');
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      const res = await window.api.finishInsumoStep({
+        sources:          parsedSources,
+        operator:         operator.trim(),
+        destinationId:    cleanDst,
+        destinationModel: destinationModel.trim() || undefined,
+        description:      description.trim() || undefined,
+      });
+      if (res.success) {
+        const d = res.data as any;
+        const sourceLines = (d.sources as any[]).map(
+          (s: any) => `• ${s.id}: saldo ${s.novoAmount} un.${s.esgotada ? ' — ESGOTADO' : ''}`
+        ).join('\n');
+        alert(
+          `Operação registrada!\n${sourceLines}\n` +
+          `• ${d.destination.id}: ${d.destination.created ? 'criado com' : 'acumulado para'} ${d.destination.amount} un.`
+        );
+        // Recarrega a caixa que estava em foco (primeira fonte = insumo original)
+        onSuccess({ ...caixa, amount: (d.sources[0] as any).novoAmount });
+      } else {
+        alert('Erro ao finalizar: ' + res.error);
+      }
+    } catch {
+      alert('Erro de comunicação com o sistema.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleSubmitNormal = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!operator.trim()) return;
     setSalvando(true);
     try {
-      if (isFinish && isInsumo) {
-        // ── Fluxo especial INS: envasamento ──────────────────────────────
-        const cleanDst = destinationId.trim().toUpperCase();
-        const qty = parseInt(producedAmount, 10);
-        if (!cleanDst) { alert('Informe o ID da caixa de destino.'); setSalvando(false); return; }
-        if (!qty || qty <= 0) { alert('Informe uma quantidade produzida válida.'); setSalvando(false); return; }
-        const res = await window.api.finishInsumoStep({
-          boxId:           caixa.id,
-          operator:        operator.trim(),
-          stockLocation:   location,
-          destinationId:   cleanDst,
-          producedAmount:  qty,
-          destinationModel: destinationModel.trim() || undefined,
-          description:     description.trim() || undefined,
-        });
-        if (res.success) {
-          const d = res.data as any;
-          alert(
-            `Operação registrada!\n` +
-            `• ${caixa.id}: saldo restante ${d.source.novoAmount} un.${d.source.esgotada ? ' — ESGOTADO' : ''}\n` +
-            `• ${d.destination.id}: ${d.destination.created ? 'criado com' : 'acumulado para'} ${d.destination.amount} un.`
-          );
-          onSuccess({ ...caixa, amount: d.source.novoAmount, location });
-        } else {
-          alert('Erro ao finalizar: ' + res.error);
-        }
-      } else if (isFinish) {
-        // ── Fluxo normal: finish simples ─────────────────────────────────
+      if (isFinish) {
         const res = await window.api.finishStep(caixa.id, operator.trim(), location);
-        if (res.success) {
-          onSuccess({ ...caixa, location: (res.data as any).stockLocation });
-        } else {
-          alert('Erro ao finalizar: ' + res.error);
-        }
+        if (res.success) onSuccess({ ...caixa, location: (res.data as any).stockLocation });
+        else alert('Erro ao finalizar: ' + res.error);
       } else {
-        // ── Iniciar etapa ─────────────────────────────────────────────────
         const res = await window.api.startStep({
-          boxId:       caixa.id,
-          step:        selectedStep,
-          operator:    operator.trim(),
-          location,
-          description: description.trim() || undefined,
+          boxId: caixa.id, step: selectedStep, operator: operator.trim(),
+          location, description: description.trim() || undefined,
         });
-        if (res.success) {
-          onSuccess((res.data as any).box);
-        } else {
-          alert('Erro ao iniciar: ' + res.error);
-        }
+        if (res.success) onSuccess((res.data as any).box);
+        else alert('Erro ao iniciar: ' + res.error);
       }
     } catch {
       alert('Erro de comunicação com o sistema.');
@@ -216,22 +243,148 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
 
   const stepColors = STEP_COLORS[caixa.step as ProductionStep];
 
+  // ── Modal de envasamento de insumo ────────────────────────────────────────
+  if (isFinish && isInsumo) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
+
+          <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-teal-500 uppercase tracking-widest mb-0.5">Envasamento — Insumo</p>
+              <p className="text-base font-bold text-zinc-900 font-mono">{caixa.id}</p>
+              <p className="text-xs text-teal-600 font-semibold mt-0.5">Modelo: {caixa.model || '—'} · Saldo: {caixa.amount} un.</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+              <IconX />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmitInsumo} className="px-6 py-5 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+
+            {/* Destino */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                  ID de Destino <span className="normal-case text-teal-600 font-semibold">(BDJ ou produto)</span>
+                </label>
+                <input required type="text" value={destinationId}
+                  onChange={(e) => setDestinationId(e.target.value.toUpperCase())}
+                  placeholder="Ex: BDJ0050"
+                  className="w-full px-3 py-2.5 text-sm font-mono bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                  Modelo do Destino <span className="normal-case font-normal text-zinc-300">(BDJ novo)</span>
+                </label>
+                <input type="text" value={destinationModel}
+                  onChange={(e) => setDestinationModel(e.target.value)}
+                  placeholder="Ex: NB2, 4G SIMCOM..."
+                  className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors" />
+              </div>
+            </div>
+
+            {/* Fontes de insumo */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
+                  Insumos utilizados <span className="normal-case font-normal text-zinc-300">({sources.length})</span>
+                </label>
+                <button type="button" onClick={addSource}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg transition-colors">
+                  <IconPlus /> Adicionar insumo
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {sources.map((src, i) => (
+                  <div key={i} className="flex gap-2 items-end bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-3">
+                    <div className="flex-[2]">
+                      <p className="text-[10px] text-zinc-400 font-semibold uppercase mb-1">Cód. Insumo (INS...)</p>
+                      <input required type="text" value={src.boxId}
+                        onChange={(e) => updateSource(i, 'boxId', e.target.value.toUpperCase())}
+                        placeholder="INS0001"
+                        className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-sm font-mono text-zinc-700 transition-colors" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] text-zinc-400 font-semibold uppercase mb-1">Qtd. retirada</p>
+                      <input required type="number" min={1} value={src.amount}
+                        onChange={(e) => updateSource(i, 'amount', e.target.value)}
+                        placeholder="0"
+                        className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-sm font-bold text-zinc-700 transition-colors" />
+                    </div>
+                    <div className="flex-[2]">
+                      <p className="text-[10px] text-zinc-400 font-semibold uppercase mb-1">Guardar INS em</p>
+                      <select value={src.stockLocation}
+                        onChange={(e) => updateSource(i, 'stockLocation', e.target.value as BoxLocation)}
+                        className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-xs text-zinc-700 transition-colors cursor-pointer">
+                        {STOCK_LOCATIONS.map((loc) => (
+                          <option key={loc} value={loc}>{LOCATION_LABELS[loc]}</option>
+                        ))}
+                      </select>
+                    </div>
+                    {sources.length > 1 && (
+                      <button type="button" onClick={() => removeSource(i)}
+                        className="p-2 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors flex-shrink-0">
+                        <IconTrash />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {totalProduced > 0 && (
+                <div className="mt-2 flex items-center justify-between bg-teal-50 border border-teal-200 rounded-lg px-4 py-2.5">
+                  <span className="text-xs font-semibold text-teal-600 uppercase tracking-widest">Total para o destino</span>
+                  <span className="text-sm font-black text-teal-800">{totalProduced} un.</span>
+                </div>
+              )}
+            </div>
+
+            {/* Operador e obs */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Operador</label>
+                <input required type="text" value={operator} onChange={(e) => setOperator(e.target.value)}
+                  placeholder="Nome do operador"
+                  className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                  Observação <span className="normal-case font-normal text-zinc-300">(opcional)</span>
+                </label>
+                <input type="text" value={description} onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Observação..."
+                  className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors" />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={onClose}
+                className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors">
+                Cancelar
+              </button>
+              <button type="submit" disabled={salvando || totalProduced === 0}
+                className="flex-[2] py-2.5 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-40 rounded-lg transition-colors shadow-sm">
+                {salvando ? 'Processando...' : `Finalizar & Envasar (${totalProduced} un.)`}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Modal normal (start / finish produto) ────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
         <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest mb-0.5 text-zinc-400">
-              {isFinish
-                ? isInsumo ? 'Finalizar & Envasar — Insumo' : 'Finalizar Etapa'
-                : 'Iniciar Próxima Etapa'}
+              {isFinish ? 'Finalizar Etapa' : 'Iniciar Próxima Etapa'}
             </p>
             <p className="text-base font-bold text-zinc-900 font-mono">{caixa.id}</p>
-            {isInsumo && (
-              <p className="text-xs text-teal-600 font-semibold mt-0.5">
-                Saldo atual: {caixa.amount} un.
-              </p>
-            )}
           </div>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
             <IconX />
@@ -252,7 +405,7 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
             </button>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="px-6 py-5 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+          <form onSubmit={handleSubmitNormal} className="px-6 py-5 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
             {isFinish && (
               <div className={`flex items-center gap-3 rounded-xl px-4 py-3 border ${stepColors ? 'bg-amber-50 border-amber-200' : 'bg-zinc-50 border-zinc-200'}`}>
                 <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${stepColors?.dot ?? 'bg-zinc-400'}`} />
@@ -277,61 +430,9 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
               </div>
             )}
 
-            {/* ── Campos exclusivos do envasamento (INS + finish) ── */}
-            {isFinish && isInsumo && (
-              <>
-                <div className="bg-teal-50 border border-teal-200 rounded-xl px-4 py-3">
-                  <p className="text-xs font-bold text-teal-700 uppercase tracking-widest mb-0.5">Envasamento</p>
-                  <p className="text-xs text-teal-600">Informe onde as unidades produzidas serão armazenadas</p>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
-                    ID de Destino <span className="normal-case font-semibold text-teal-600">(BDJ ou caixa de produto)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={destinationId}
-                    onChange={(e) => setDestinationId(e.target.value.toUpperCase())}
-                    placeholder="Ex: BDJ0050 ou NB20100"
-                    className="w-full px-3 py-2.5 text-sm font-mono bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
-                    Qtd. Produzida <span className="normal-case font-semibold text-teal-600">(máx. {caixa.amount} un.)</span>
-                  </label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={caixa.amount}
-                    value={producedAmount}
-                    onChange={(e) => setProducedAmount(e.target.value)}
-                    placeholder={`1 – ${caixa.amount}`}
-                    className="w-full px-3 py-2.5 text-sm font-bold bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
-                    Modelo do Destino <span className="normal-case font-normal text-zinc-300">(obrigatório se BDJ novo)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={destinationModel}
-                    onChange={(e) => setDestinationModel(e.target.value)}
-                    placeholder="Ex: NB2, 4G SIMCOM..."
-                    className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-teal-400 focus:bg-white outline-none text-zinc-700 transition-colors"
-                  />
-                </div>
-              </>
-            )}
-
-            {/* Localização de retorno da caixa INS / destino normal */}
             <div>
               <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
-                {isFinish && isInsumo ? 'Onde guardar a caixa INS após operação' : isFinish ? 'Destino no Estoque' : 'Localização'}
+                {isFinish ? 'Destino no Estoque' : 'Localização'}
               </label>
               <select required value={location} onChange={(e) => setLocation(e.target.value as BoxLocation)}
                 className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-blue-400 focus:bg-white outline-none text-zinc-700 transition-colors cursor-pointer">
@@ -363,20 +464,8 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
                 Cancelar
               </button>
               <button type="submit" disabled={salvando}
-                className={`flex-[2] py-2.5 text-sm font-bold text-white rounded-lg transition-colors disabled:opacity-40 ${
-                  isFinish && isInsumo
-                    ? 'bg-teal-600 hover:bg-teal-700'
-                    : isFinish
-                      ? 'bg-emerald-600 hover:bg-emerald-700'
-                      : 'bg-blue-600 hover:bg-blue-700'
-                }`}>
-                {salvando
-                  ? 'Processando...'
-                  : isFinish && isInsumo
-                    ? 'Finalizar & Envasar'
-                    : isFinish
-                      ? 'Finalizar Etapa'
-                      : 'Iniciar Etapa'}
+                className={`flex-[2] py-2.5 text-sm font-bold text-white rounded-lg transition-colors disabled:opacity-40 ${isFinish ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'}`}>
+                {salvando ? 'Processando...' : isFinish ? 'Finalizar Etapa' : 'Iniciar Etapa'}
               </button>
             </div>
           </form>

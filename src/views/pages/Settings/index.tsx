@@ -29,6 +29,7 @@ const Settings = () => {
           <p className="text-sm font-semibold text-zinc-600">Em construção</p>
           <p className="text-xs text-zinc-400 mt-1">As configurações do sistema estarão disponíveis em breve</p>
         </div>
+        <input type="file" id="fileInput" className="hidden" />
 
       </div>
     </div>

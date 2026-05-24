@@ -104,14 +104,18 @@ export interface ConsumirBdjInput {
   operator: string;
 }
 
+export interface InsumoSource {
+  boxId: string;        // ID da caixa INS de origem
+  amount: number;       // quantas unidades retirar deste insumo
+  stockLocation: BoxLocation; // onde guardar esta caixa INS após a operação
+}
+
 export interface FinishInsumoStepInput {
-  boxId: string;          // a caixa INS sendo finalizada
+  sources: InsumoSource[];  // um ou mais insumos contribuindo para o destino
   operator: string;
-  stockLocation: BoxLocation;
-  destinationId: string;  // BDJ ou NB2/4GS/LOR/NBL onde as unidades vão
-  producedAmount: number; // quantas unidades foram produzidas nessa operação
-  destinationModel?: string | null; // modelo obrigatório se destino for BDJ novo
-  destinationStep?: ProductionStep; // step da caixa de destino (default: 'Montagem')
+  destinationId: string;    // BDJ ou produto onde as unidades vão
+  destinationModel?: string | null;
+  destinationStep?: ProductionStep;
   description?: string;
 }
 
