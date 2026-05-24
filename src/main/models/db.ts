@@ -57,6 +57,17 @@ try {
   sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_box_model         ON box(model)`);
 } catch { /* índices já existem */ }
 
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS box_composition (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
+    new_box_id     TEXT    NOT NULL REFERENCES box(id),
+    source_box_id  TEXT    NOT NULL REFERENCES box(id),
+    amount_taken   INTEGER NOT NULL,
+    created_at     INTEGER NOT NULL,
+    operator       TEXT
+  );
+`);
+
 try {
   sqlite.exec(`ALTER TABLE box ADD COLUMN parent_id TEXT`);
 } catch { /* coluna já existe */ }
@@ -68,5 +79,66 @@ try {
 try {
   sqlite.exec(`ALTER TABLE history ADD COLUMN modelo TEXT`);
 } catch { /* coluna já existe */ }
+
+// ─── Módulo: Controle de Produção Hora a Hora ───────────────────────────────
+
+// Migration: recria ficha_diaria sem turno na UNIQUE constraint (caso banco antigo exista)
+try {
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS producao_ficha_diaria (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      data             TEXT    NOT NULL,
+      produto          TEXT    NOT NULL,
+      etapa            TEXT    NOT NULL,
+      meta_hora_padrao INTEGER NOT NULL DEFAULT 40,
+      criado_em        INTEGER NOT NULL,
+      UNIQUE(data, etapa, produto)
+    );
+  `);
+} catch { /* tabela já existe com schema correto */ }
+
+// Se a tabela existia com o schema antigo (continha coluna turno), migra os dados
+try {
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS producao_ficha_diaria_new (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      data             TEXT    NOT NULL,
+      produto          TEXT    NOT NULL,
+      etapa            TEXT    NOT NULL,
+      meta_hora_padrao INTEGER NOT NULL DEFAULT 40,
+      criado_em        INTEGER NOT NULL,
+      UNIQUE(data, etapa, produto)
+    );
+    INSERT OR IGNORE INTO producao_ficha_diaria_new (id, data, produto, etapa, meta_hora_padrao, criado_em)
+      SELECT id, data, produto, etapa, meta_hora_padrao, criado_em FROM producao_ficha_diaria;
+    DROP TABLE producao_ficha_diaria;
+    ALTER TABLE producao_ficha_diaria_new RENAME TO producao_ficha_diaria;
+  `);
+} catch { /* migração não necessária ou já feita */ }
+
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS producao_operador_diario (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    ficha_id      INTEGER NOT NULL REFERENCES producao_ficha_diaria(id) ON DELETE CASCADE,
+    operador_nome TEXT    NOT NULL,
+    ordem         INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(ficha_id, operador_nome)
+  );
+
+  CREATE TABLE IF NOT EXISTS producao_registro_horario (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    operador_diario_id  INTEGER NOT NULL REFERENCES producao_operador_diario(id) ON DELETE CASCADE,
+    horario_bloco       TEXT    NOT NULL,
+    meta                INTEGER NOT NULL DEFAULT 0,
+    realizado           INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(operador_diario_id, horario_bloco)
+  );
+`);
+
+try {
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_ficha_data_etapa ON producao_ficha_diaria(data, etapa)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_operador_ficha   ON producao_operador_diario(ficha_id)`);
+  sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_registro_op      ON producao_registro_horario(operador_diario_id)`);
+} catch { /* índices já existem */ }
 
 export const db = drizzle(sqlite, { schema });

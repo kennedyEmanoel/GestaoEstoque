@@ -220,7 +220,6 @@ const History = () => {
           {!loading && filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-zinc-100 bg-zinc-50">
               <p className="text-xs text-zinc-400">
-                <input type="text" placeholder="Filtrar por caixa..." className="px-2 py-1 text-xs font-mono uppercase bg-zinc-50 border border-zinc-200 rounded-lg outline-none focus:border-blue-400 focus:bg-white transition-colors text-zinc-700 placeholder:normal-case placeholder:font-sans" />
                 Exibindo <span className="font-semibold text-zinc-600">{filtered.length}</span> de <span className="font-semibold text-zinc-600">{logs.length}</span> registros
               </p>
             </div>

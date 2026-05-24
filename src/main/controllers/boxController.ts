@@ -9,35 +9,10 @@ import type { NewBoxInput, StartStepInput, BatchBoxInput, CreateTrayFromSourcesI
 
 export const setupBoxControllers = () => {
 
-  /*ipcMain.handle('create-box', async (_event, data: NewBoxInput) => {
+  ipcMain.handle('create-box', async (_event, data: NewBoxInput) => {
     try { return { success: true, data: createBox(data) }; }
     catch (e: any) { return { success: false, error: e.message }; }
-  });*/
-
-  ipcMain.handle('create-box', async (_event, data: NewBoxInput) => {
-  try { 
-    console.log('\n=======================================');
-    console.log(`[TESTE] Tentando criar caixa. Dados recebidos do React:`, data);
-    console.time('Tempo_createBox'); 
-    
-    // Tenta gravar no banco de dados
-    const resultado = createBox(data);
-    
-    console.timeEnd('Tempo_createBox'); 
-    console.log(`[TESTE] Sucesso! Caixa gravada no SQLite.`);
-    console.log('=======================================\n');
-    
-    return { success: true, data: resultado }; 
-    
-  } catch (e: any) { 
-    // SE DER ERRO NO BANCO, ELE VAI GRITAR AQUI!
-    console.error('\n=======================================');
-    console.error(`[ERRO FATAL EM create-box]:`, e);
-    console.error('=======================================\n');
-    
-    return { success: false, error: e.message }; 
-  }
-});
+  });
 
   ipcMain.handle('get-box', async (_event, id: string) => {
     try { return { success: true, data: getBoxById(id) }; }

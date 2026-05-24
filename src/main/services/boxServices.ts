@@ -3,7 +3,7 @@ import { box, STOCK_LOCATIONS } from '../models/schema/box';
 import type { BoxPrefix, ProductionStep, BoxLocation } from '../models/schema/box';
 import { history } from '../models/schema/history';
 import { boxComposition } from '../models/schema/boxComposition';
-import { eq, and, or, isNull, isNotNull, desc, like, max, inArray, gte, lte } from 'drizzle-orm';
+import { eq, and, or, isNull, isNotNull, desc, like, max, inArray, gte, lte, sql } from 'drizzle-orm';
 import type {
   NewBoxInput, StartStepInput, StockSummary, BatchBoxInput, ExpedicaoInput,
   CreateTrayFromSourcesInput, BoxLineage, FinishInsumoStepInput,
@@ -546,9 +546,11 @@ export function createTrayFromSources(data: CreateTrayFromSourcesInput) {
   const totalAmount = sourcesValidated.reduce((sum, s) => sum + s.amountTaken, 0);
   const now = new Date();
 
+  const initialStep: ProductionStep = data.initialStep ?? 'Montagem';
+
   return db.transaction((tx) => {
     const [newBox] = tx.insert(box).values({
-      id: cleanNewId, model, amount: totalAmount, step: 'Montagem',
+      id: cleanNewId, model, amount: totalAmount, step: initialStep,
       origin: isBandeja ? 'TRAY' : 'PRODUCTION',
       location: data.location ?? 'ESTOQUE',
       weight: data.weight ?? 0, operator: data.operator,
@@ -557,7 +559,7 @@ export function createTrayFromSources(data: CreateTrayFromSourcesInput) {
 
     tx.insert(history).values({
       boxId: cleanNewId, startTime: now, endTime: now, timeSpent: 0,
-      typeOperation: 'CRIACAO_SPLIT', stepStatus: 'CLOSED', step: 'Montagem',
+      typeOperation: 'CRIACAO_SPLIT', stepStatus: 'CLOSED', step: initialStep,
       location: data.location ?? 'ESTOQUE', operator: data.operator,
       description: `Criado por composição de ${sourcesValidated.length} fonte(s). Total: ${totalAmount} un.`,
       modelo: model,

@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const asar = require\\('@electron/asar'\\); const list = asar.listPackage\\('./out/GestaoEstoque-win32-x64/resources/app.asar'\\); console.log\\(list.slice\\(0,30\\).join\\('\\\\n'\\)\\);\")"
+    ]
+  }
+}

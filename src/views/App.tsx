@@ -4,6 +4,8 @@ import Dashboard from './pages/Dashboard';
 import Stock from './pages/Stock';
 import History from './pages/History';
 import Settings from './pages/Settings';
+import Producao from './pages/Producao';
+import ProducaoDashboard from './pages/Producao/Dashboard';
 import Header from './components/Header';
 
 const App = () => {
@@ -50,6 +52,8 @@ const App = () => {
           {abaAtiva === 'movimentacoes' && <Stock />}
           {abaAtiva === 'historico'    && <History />}
           {abaAtiva === 'configuracoes' && <Settings />}
+          {abaAtiva === 'producao'     && <Producao />}
+          {abaAtiva === 'producao-dashboard' && <ProducaoDashboard />}
         </div>
 
       </main>

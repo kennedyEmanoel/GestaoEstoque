@@ -126,9 +126,12 @@ interface InsumoSourceRow {
   stockLocation: BoxLocation;
 }
 
+interface BdjRow { bdjId: string; amount: string }
+
 const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: ScanModalProps) => {
   const isFinish = mode === 'finish';
   const isInsumo = (caixa.id as string).startsWith('INS');
+  const isSoldagem = (caixa.step as string) === 'Soldagem';
 
   const montagemConcluida = boxHistory.some(
     (r: any) => r.step === 'Montagem' && r.stepStatus === 'CLOSED' && r.typeOperation === 'SCAN_END'
@@ -147,10 +150,16 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
   // ── estado exclusivo do fluxo INS ────────────────────────────────────────
   const [destinationId, setDestinationId]         = useState('');
   const [destinationModel, setDestinationModel]   = useState('');
-  // fontes: começa com o insumo atual já preenchido
   const [sources, setSources] = useState<InsumoSourceRow[]>([
     { boxId: caixa.id, amount: '', stockLocation: 'ESTOQUE' },
   ]);
+
+  // ── estado exclusivo do fluxo Soldagem ───────────────────────────────────
+  const [bdjRows, setBdjRows] = useState<BdjRow[]>([{ bdjId: caixa.id, amount: String(caixa.amount ?? '') }]);
+  const addBdj    = () => setBdjRows(prev => [...prev, { bdjId: '', amount: '' }]);
+  const removeBdj = (i: number) => setBdjRows(prev => prev.filter((_, idx) => idx !== i));
+  const updateBdj = (i: number, val: string) =>
+    setBdjRows(prev => prev.map((r, idx) => idx === i ? { ...r, bdjId: val } : r));
 
   const totalProduced = sources.reduce((s, r) => s + (parseInt(r.amount, 10) || 0), 0);
 
@@ -210,6 +219,50 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
       } else {
         alert('Erro ao finalizar: ' + res.error);
       }
+    } catch {
+      alert('Erro de comunicação com o sistema.');
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const handleSubmitSoldagem = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!operator.trim()) return;
+    const cleanDest = destinationId.trim().toUpperCase();
+    if (!cleanDest) { alert('Informe o ID do produto a criar.'); return; }
+
+    const parsedSources = bdjRows
+      .filter(r => r.bdjId.trim())
+      .map(r => ({ sourceBoxId: r.bdjId.trim().toUpperCase(), amountTaken: parseInt(r.amount, 10) }));
+
+    if (parsedSources.length === 0) { alert('Adicione ao menos uma bandeja fonte.'); return; }
+    if (parsedSources.some(s => isNaN(s.amountTaken) || s.amountTaken <= 0)) {
+      alert('Informe a quantidade retirada de cada bandeja.');
+      return;
+    }
+
+    setSalvando(true);
+    try {
+      // Cria o produto a partir das BDJs, já com step Soldagem
+      const res = await window.api.createTrayFromSources({
+        newBoxId:    cleanDest,
+        operator:    operator.trim(),
+        location:    location,
+        description: description.trim() || undefined,
+        initialStep: 'Soldagem',
+        sources:     parsedSources,
+      });
+      if (!res.success) { alert('Erro: ' + res.error); return; }
+
+      const d = res.data as any;
+      alert(
+        `Produto ${cleanDest} criado com ${d.totalAmount} un. em Soldagem!\n` +
+        d.sources.map((s: any) =>
+          `• ${s.sourceBoxId}: −${s.amountTaken} un. (saldo: ${s.saldoRestante}${s.esgotada ? ' — ESGOTADA' : ''})`
+        ).join('\n')
+      );
+      onSuccess({ ...caixa });
     } catch {
       alert('Erro de comunicação com o sistema.');
     } finally {
@@ -367,6 +420,131 @@ const ScanModal = ({ caixa, mode, openRecord, onClose, onSuccess, boxHistory }: 
               <button type="submit" disabled={salvando || totalProduced === 0}
                 className="flex-[2] py-2.5 text-sm font-bold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-40 rounded-lg transition-colors shadow-sm">
                 {salvando ? 'Processando...' : `Finalizar & Envasar (${totalProduced} un.)`}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Modal de finalização de Soldagem (merge de BDJs → produto) ──────────
+  if (isFinish && isSoldagem && !isInsumo) {
+    const totalSoldagem = bdjRows.reduce((s, r) => s + (parseInt(r.amount ?? '0', 10) || 0), 0);
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+        <div className="w-full max-w-lg bg-white rounded-2xl shadow-xl border border-zinc-200 overflow-hidden">
+
+          <div className="px-6 py-5 border-b border-zinc-100 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-semibold text-orange-500 uppercase tracking-widest mb-0.5">Finalizar Soldagem — Criar Produto</p>
+              <p className="text-base font-bold text-zinc-900 font-mono">{caixa.id}</p>
+              <p className="text-xs text-zinc-400 mt-0.5">{caixa.model || '—'} · {caixa.amount} un. disponíveis</p>
+            </div>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-zinc-700 hover:bg-zinc-100 transition-colors">
+              <IconX />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmitSoldagem} className="px-6 py-5 flex flex-col gap-4 max-h-[80vh] overflow-y-auto">
+
+            {/* ID do produto a criar */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                ID do Produto <span className="normal-case font-semibold text-orange-500">(obrigatório)</span>
+              </label>
+              <input required type="text" value={destinationId}
+                onChange={e => setDestinationId(e.target.value.toUpperCase())}
+                placeholder="Ex: NB20001, 4GS0010, LOR0005"
+                className="w-full px-3 py-2.5 bg-zinc-50 border border-zinc-200 rounded-lg focus:border-orange-400 focus:bg-white outline-none text-sm font-mono text-zinc-700 transition-colors" />
+              <p className="text-[10px] text-zinc-400 mt-1">Prefixos válidos: NB2, 4GS, LOR, NBL, BDJ</p>
+            </div>
+
+            {/* Fontes (BDJs) */}
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
+                  Bandejas (fontes) <span className="normal-case font-normal text-zinc-300">({bdjRows.length})</span>
+                </label>
+                <button type="button" onClick={addBdj}
+                  className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded-lg transition-colors">
+                  <IconPlus /> Adicionar bandeja
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-2">
+                {bdjRows.map((row, i) => (
+                  <div key={i} className="flex gap-2 items-end bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-3">
+                    <div className="flex-[2]">
+                      <p className="text-[10px] text-zinc-400 font-semibold uppercase mb-1">Cód. Bandeja (BDJ...)</p>
+                      <input required type="text" value={row.bdjId}
+                        onChange={e => updateBdj(i, e.target.value.toUpperCase())}
+                        placeholder="BDJ0001"
+                        className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg focus:border-orange-400 outline-none text-sm font-mono text-zinc-700 transition-colors" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-[10px] text-zinc-400 font-semibold uppercase mb-1">Qtd. retirada</p>
+                      <input required type="number" min={1} value={row.amount ?? ''}
+                        onChange={e => setBdjRows(prev => prev.map((r, idx) => idx === i ? { ...r, amount: e.target.value } : r))}
+                        placeholder="0"
+                        className="w-full px-3 py-2 bg-white border border-zinc-200 rounded-lg focus:border-orange-400 outline-none text-sm font-bold text-zinc-700 transition-colors" />
+                    </div>
+                    {bdjRows.length > 1 && (
+                      <button type="button" onClick={() => removeBdj(i)}
+                        className="p-2 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors flex-shrink-0">
+                        <IconTrash />
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {totalSoldagem > 0 && (
+                <div className="mt-2 flex items-center justify-between bg-orange-50 border border-orange-200 rounded-lg px-4 py-2.5">
+                  <span className="text-xs font-semibold text-orange-600 uppercase tracking-widest">Total do produto</span>
+                  <span className="text-sm font-black text-orange-800">{totalSoldagem} un.</span>
+                </div>
+              )}
+            </div>
+
+            {/* Destino no estoque */}
+            <div>
+              <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Guardar produto em</label>
+              <select required value={location} onChange={e => setLocation(e.target.value as BoxLocation)}
+                className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-orange-400 focus:bg-white outline-none text-zinc-700 transition-colors cursor-pointer">
+                {STOCK_LOCATIONS.map(loc => (
+                  <option key={loc} value={loc}>{LOCATION_LABELS[loc]}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Operador e obs */}
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Operador</label>
+                <input required type="text" value={operator} onChange={e => setOperator(e.target.value)}
+                  placeholder="Nome do operador"
+                  className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-orange-400 focus:bg-white outline-none text-zinc-700 transition-colors" />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                  Observação <span className="normal-case font-normal text-zinc-300">(opcional)</span>
+                </label>
+                <input type="text" value={description} onChange={e => setDescription(e.target.value)}
+                  placeholder="Observação..."
+                  className="w-full px-3 py-2.5 text-sm bg-zinc-50 border border-zinc-200 rounded-lg focus:border-orange-400 focus:bg-white outline-none text-zinc-700 transition-colors" />
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button type="button" onClick={onClose}
+                className="flex-1 py-2.5 text-sm font-semibold text-zinc-600 bg-white border border-zinc-200 hover:bg-zinc-50 rounded-lg transition-colors">
+                Cancelar
+              </button>
+              <button type="submit" disabled={salvando || !destinationId.trim() || totalSoldagem === 0}
+                className="flex-[2] py-2.5 text-sm font-bold text-white bg-orange-600 hover:bg-orange-700 disabled:opacity-40 rounded-lg transition-colors shadow-sm">
+                {salvando ? 'Processando...' : `Criar ${destinationId || 'Produto'} (${totalSoldagem} un.)`}
               </button>
             </div>
           </form>

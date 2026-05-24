@@ -25,6 +25,7 @@ export interface CreateTrayFromSourcesInput {
   weight?:      number;
   location?:    BoxLocation;
   description?: string;
+  initialStep?: ProductionStep;
   sources: Array<{
     sourceBoxId:  string;
     amountTaken:  number;
@@ -132,6 +133,125 @@ export interface ApiResponse<T = unknown> {
   error?: string;
 }
 
+// ─── Módulo: Controle de Produção Hora a Hora ────────────────────────────────
+
+export type EtapaProducao = 'Montagem' | 'Soldagem' | 'Revisao' | 'Firmware' | 'IMEI';
+
+export interface FichaDiaria {
+  id: number;
+  data: string;
+  produto: string;
+  etapa: EtapaProducao;
+  metaHoraPadrao: number;
+  criadoEm: number;
+}
+
+export interface OperadorDiario {
+  id: number;
+  fichaId: number;
+  operadorNome: string;
+  ordem: number;
+}
+
+export interface RegistroHorario {
+  id: number;
+  operadorDiarioId: number;
+  horarioBloco: string;
+  meta: number;
+  realizado: number;
+}
+
+export interface FichaDiariaCompleta extends FichaDiaria {
+  operadores: Array<OperadorDiario & {
+    registros: RegistroHorario[];
+  }>;
+}
+
+export interface CreateFichaDiariaInput {
+  data: string;
+  produto: string;
+  etapa: EtapaProducao;
+  metaHoraPadrao: number;
+}
+
+export interface AddOperadorInput {
+  fichaId: number;
+  operadorNome: string;
+}
+
+export interface RemoveOperadorInput {
+  operadorDiarioId: number;
+}
+
+export interface UpsertRegistroInput {
+  operadorDiarioId: number;
+  horarioBloco: string;
+  meta: number;
+  realizado: number;
+}
+
+export interface GetFichaInput {
+  data: string;
+  etapa: EtapaProducao;
+  produto: string;
+}
+
+export interface DashboardProducaoFiltros {
+  data: string;
+  etapa?: string;
+  produto?: string;
+}
+
+export interface KpiProducao {
+  totalRealizado: number;
+  totalMeta: number;
+  saldo: number;
+  pctAtingimento: number | null;
+}
+
+export interface DadosPorHora {
+  horarioBloco: string;
+  realizado: number;
+  meta: number;
+}
+
+export interface DadosPorOperador {
+  operadorNome: string;
+  totalRealizado: number;
+  totalMeta: number;
+}
+
+export interface SaldoAcumulado {
+  horarioBloco: string;
+  saldoAcumulado: number;
+}
+
+export interface DashboardProducaoData {
+  kpi: KpiProducao;
+  porHora: DadosPorHora[];
+  porOperador: DadosPorOperador[];
+  saldoAcumulado: SaldoAcumulado[];
+  etapasDisponiveis: string[];
+  produtosDisponiveis: string[];
+}
+
+export interface EtapaResumo {
+  etapa: string;
+  totalRealizado: number;
+  totalMeta: number;
+  saldo: number;
+  pctAtingimento: number | null;
+  porOperador: DadosPorOperador[];
+  porHora: DadosPorHora[];
+}
+
+export interface DashboardPorEtapasData {
+  data: string;
+  produto: string;
+  totalGeral: { realizado: number; meta: number };
+  etapas: EtapaResumo[];
+}
+
 declare global {
   interface Window {
     api: {
@@ -152,6 +272,15 @@ declare global {
       createTrayFromSources: (data: CreateTrayFromSourcesInput) => Promise<ApiResponse>;
       getBoxLineage: (boxId: string) => Promise<ApiResponse<BoxLineage>>;
       finishInsumoStep: (data: FinishInsumoStepInput) => Promise<ApiResponse>;
+      // Produção Hora a Hora
+      getOrCreateFicha: (data: CreateFichaDiariaInput) => Promise<ApiResponse<FichaDiariaCompleta>>;
+      getFichaCompleta: (input: GetFichaInput) => Promise<ApiResponse<FichaDiariaCompleta | null>>;
+      addOperador: (data: AddOperadorInput) => Promise<ApiResponse<OperadorDiario>>;
+      removeOperador: (data: RemoveOperadorInput) => Promise<ApiResponse>;
+      upsertRegistro: (data: UpsertRegistroInput) => Promise<ApiResponse<RegistroHorario>>;
+      updateMetaHoraPadrao: (fichaId: number, meta: number) => Promise<ApiResponse>;
+      getDashboardProducao: (filtros: DashboardProducaoFiltros) => Promise<ApiResponse<DashboardProducaoData>>;
+      getDashboardPorEtapas: (data: string, produto?: string) => Promise<ApiResponse<DashboardPorEtapasData>>;
     };
   }
 }

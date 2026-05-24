@@ -3,6 +3,7 @@ import path from 'node:path';
 import started from 'electron-squirrel-startup';
 import { setupBoxControllers } from './main/controllers/boxController';
 import { setupDashboardControllers } from './main/controllers/dashboardController';
+import { setupProducaoControllers } from './main/controllers/producaoController';
 
 declare const MAIN_WINDOW_VITE_DEV_SERVER_URL: string;
 declare const MAIN_WINDOW_VITE_NAME: string;
@@ -34,6 +35,7 @@ const createWindow = () => {
 app.on('ready', () => {
   setupBoxControllers();
   setupDashboardControllers();
+  setupProducaoControllers();
   createWindow();
 });
 

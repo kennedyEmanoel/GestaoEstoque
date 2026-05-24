@@ -7,14 +7,47 @@ import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
 import { FuseV1Options, FuseVersion } from '@electron/fuses';
+import path from 'path';
+import fs from 'fs';
+
+function copyDirSync(src: string, dest: string) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, entry.name);
+    const d = path.join(dest, entry.name);
+    if (entry.isDirectory()) copyDirSync(s, d);
+    else fs.copyFileSync(s, d);
+  }
+}
 
 const config: ForgeConfig = {
   packagerConfig: {
-    asar: true,
+    asar: {
+      unpack: '**/*.node',
+    },
+    name: 'GestaoEstoque',
+    executableName: 'GestaoEstoque',
   },
-  rebuildConfig: {},
+  rebuildConfig: {
+    extraModules: ['better-sqlite3'],
+  },
+  hooks: {
+    packageAfterCopy: async (_config, buildPath) => {
+      // Copia better-sqlite3 e suas dependências para dentro do pacote
+      const deps = ['better-sqlite3', 'bindings', 'file-uri-to-path'];
+      for (const dep of deps) {
+        const src  = path.join(process.cwd(), 'node_modules', dep);
+        const dest = path.join(buildPath,      'node_modules', dep);
+        if (fs.existsSync(src)) copyDirSync(src, dest);
+      }
+    },
+  },
   makers: [
-    new MakerSquirrel({}),
+    new MakerSquirrel({
+      name: 'GestaoEstoque',
+      setupExe: 'GestaoEstoque-Setup.exe',
+      noMsi: true,
+    }),
     new MakerZIP({}, ['darwin']),
     new MakerRpm({}),
     new MakerDeb({}),
@@ -47,8 +80,8 @@ const config: ForgeConfig = {
       [FuseV1Options.EnableCookieEncryption]: true,
       [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
       [FuseV1Options.EnableNodeCliInspectArguments]: false,
-      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
-      [FuseV1Options.OnlyLoadAppFromAsar]: true,
+      [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: false,
+      [FuseV1Options.OnlyLoadAppFromAsar]: false,
     }),
   ],
 };

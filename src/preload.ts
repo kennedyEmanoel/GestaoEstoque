@@ -23,4 +23,21 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('get-box-lineage', boxId),
   finishInsumoStep: (data: any) =>
     ipcRenderer.invoke('finish-insumo-step', data),
+  // Produção Hora a Hora
+  getOrCreateFicha: (data: any) =>
+    ipcRenderer.invoke('producao:get-or-create-ficha', data),
+  getFichaCompleta: (input: any) =>
+    ipcRenderer.invoke('producao:get-ficha', input),
+  addOperador: (data: any) =>
+    ipcRenderer.invoke('producao:add-operador', data),
+  removeOperador: (data: any) =>
+    ipcRenderer.invoke('producao:remove-operador', data),
+  upsertRegistro: (data: any) =>
+    ipcRenderer.invoke('producao:upsert-registro', data),
+  updateMetaHoraPadrao: (fichaId: number, meta: number) =>
+    ipcRenderer.invoke('producao:update-meta-padrao', fichaId, meta),
+  getDashboardProducao: (filtros: any) =>
+    ipcRenderer.invoke('producao:get-dashboard', filtros),
+  getDashboardPorEtapas: (data: string, produto?: string) =>
+    ipcRenderer.invoke('producao:get-dashboard-etapas', data, produto),
 });
