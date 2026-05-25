@@ -48,7 +48,7 @@ function Vazio({ height = 160 }: { height?: number }) {
 }
 
 /** Card de total no topo de cada seção de etapa */
-function EtapaHeader({ etapa, totalRealizado, totalMeta, saldo, pctAtingimento }: EtapaResumo) {
+function EtapaHeader({ etapa, produto, totalRealizado, totalMeta, saldo, pctAtingimento }: EtapaResumo) {
   const cor = corEtapa(etapa);
 
   return (
@@ -62,9 +62,14 @@ function EtapaHeader({ etapa, totalRealizado, totalMeta, saldo, pctAtingimento }
       gap: 32,
       flexWrap: 'wrap',
     }}>
-      <span style={{ fontWeight: 800, fontSize: 15, letterSpacing: 1, minWidth: 110 }}>
-        {etapa.toUpperCase()}
-      </span>
+      <div style={{ minWidth: 140 }}>
+        <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: 1 }}>
+          {etapa.toUpperCase()}
+        </div>
+        <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, marginTop: 2 }}>
+          {produto}
+        </div>
+      </div>
 
       <Stat label="REALIZADO" value={totalRealizado.toLocaleString('pt-BR')} color="#fff" />
       <Stat label="META"      value={totalMeta.toLocaleString('pt-BR')}      color="rgba(255,255,255,0.7)" />

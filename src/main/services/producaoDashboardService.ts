@@ -206,7 +206,7 @@ export function getDashboardPorEtapas(data: string, produto?: string): Dashboard
     const saldo          = totalRealizado - totalMeta;
     const pctAtingimento = totalMeta > 0 ? (totalRealizado / totalMeta) * 100 : null;
 
-    return { etapa: ficha.etapa, totalRealizado, totalMeta, saldo, pctAtingimento, porOperador, porHora };
+    return { etapa: ficha.etapa, produto: ficha.produto, totalRealizado, totalMeta, saldo, pctAtingimento, porOperador, porHora };
   });
 
   const totalGeral = {

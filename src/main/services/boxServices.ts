@@ -141,12 +141,15 @@ export function createBatchBoxes(data: BatchBoxInput) {
       if (!ID_REGEX.test(cleanId)) throw new Error(`ID inválido: ${cleanId}`);
       const prefix = cleanId.substring(0, 3) as BoxPrefix;
       const isBandeja = prefix === 'BDJ';
-      const model = isBandeja ? (data.model ?? null) : (PREFIX_TO_MODEL[prefix] ?? null);
+      const isInsumoBox = data.isInsumo ?? false;
+      const model = isBandeja || isInsumoBox
+        ? (data.model ?? null)
+        : (PREFIX_TO_MODEL[prefix] ?? null);
       if (isBandeja && !model) throw new Error(`Bandeja '${cleanId}' exige um modelo.`);
-      if (!isBandeja && !model) throw new Error(`Prefixo '${prefix}' sem produto mapeado.`);
+      if (isInsumoBox && !model) throw new Error(`Insumo '${cleanId}' exige um produto. Selecione o produto na tela.`);
+      if (!isBandeja && !isInsumoBox && !model) throw new Error(`Prefixo '${prefix}' sem produto mapeado.`);
 
-      const isInsumo = data.isInsumo ?? false;
-      const step: ProductionStep = isInsumo ? 'Montagem' : (data.step ?? 'Montagem');
+      const step: ProductionStep = isInsumoBox ? 'Montagem' : (data.step ?? 'Montagem');
 
       try {
         const [row] = tx.insert(box).values({
@@ -160,7 +163,7 @@ export function createBatchBoxes(data: BatchBoxInput) {
           origin: isBandeja ? 'TRAY' : 'PRODUCTION',
           step,
           location: data.location ?? 'ESTOQUE',
-          isInsumo,
+          isInsumo: isInsumoBox,
         }).returning().all();
 
         tx.insert(history).values({
@@ -173,7 +176,7 @@ export function createBatchBoxes(data: BatchBoxInput) {
           step,
           location: data.location ?? 'ESTOQUE',
           operator: data.operator,
-          description: isInsumo ? 'Criação — Insumo' : `Criação${isBandeja ? ' — Bandeja' : ''}`,
+          description: isInsumoBox ? 'Criação — Insumo' : `Criação${isBandeja ? ' — Bandeja' : ''}`,
           modelo: model,
         }).run();
 

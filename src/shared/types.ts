@@ -237,6 +237,7 @@ export interface DashboardProducaoData {
 
 export interface EtapaResumo {
   etapa: string;
+  produto: string;
   totalRealizado: number;
   totalMeta: number;
   saldo: number;
