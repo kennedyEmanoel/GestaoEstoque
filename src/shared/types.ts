@@ -282,6 +282,8 @@ declare global {
       updateMetaHoraPadrao: (fichaId: number, meta: number) => Promise<ApiResponse>;
       getDashboardProducao: (filtros: DashboardProducaoFiltros) => Promise<ApiResponse<DashboardProducaoData>>;
       getDashboardPorEtapas: (data: string, produto?: string) => Promise<ApiResponse<DashboardPorEtapasData>>;
+      openProductionWindow:  () => void;
+      closeProductionWindow: () => void;
     };
   }
 }

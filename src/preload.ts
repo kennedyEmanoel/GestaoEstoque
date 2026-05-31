@@ -40,4 +40,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('producao:get-dashboard', filtros),
   getDashboardPorEtapas: (data: string, produto?: string) =>
     ipcRenderer.invoke('producao:get-dashboard-etapas', data, produto),
+  openProductionWindow: () =>
+    ipcRenderer.send('open-production-window'),
+  closeProductionWindow: () =>
+    ipcRenderer.send('close-production-window'),
 });

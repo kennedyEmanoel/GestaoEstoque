@@ -8,26 +8,36 @@ import Producao from './pages/Producao';
 import ProducaoDashboard from './pages/Producao/Dashboard';
 import Header from './components/Header';
 
+const standaloneParam = new URLSearchParams(window.location.search).get('standalone');
+
 const App = () => {
   const [abaAtiva, setAbaAtiva] = useState('dashboard');
   const [sidebarAberta, setSidebarAberta] = useState(false);
 
+  if (standaloneParam === 'producao-dashboard') {
+    return (
+      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+        <ProducaoDashboard standalone />
+      </div>
+    );
+  }
+
   return (
     <div style={{ position: 'relative', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-      
+
       {sidebarAberta && (
         <div style={{
-          position: 'absolute', 
-          top: 0, 
-          left: 0, 
-          zIndex: 50, 
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          zIndex: 50,
           height: '100vh',
           boxShadow: '10px 0 15px rgba(0,0,0,0.1)'
         }}>
-          <Sidebar 
-            abaAtiva={abaAtiva} 
-            setAbaAtiva={setAbaAtiva} 
-            setSidebarAberta={setSidebarAberta} 
+          <Sidebar
+            abaAtiva={abaAtiva}
+            setAbaAtiva={setAbaAtiva}
+            setSidebarAberta={setSidebarAberta}
           />
         </div>
       )}

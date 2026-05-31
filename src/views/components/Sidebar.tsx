@@ -4,6 +4,8 @@ interface SidebarProps {
   setSidebarAberta: (aberta: boolean) => void;
 }
 
+const STANDALONE_IDS = new Set(['producao-dashboard']);
+
 const NAV_ITEMS = [
   {
     id: 'dashboard',
@@ -83,14 +85,22 @@ const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
           return (
             <button
               key={item.id}
-              onClick={() => { setAbaAtiva(item.id); setSidebarAberta(false); }}
+              onClick={() => {
+                if (STANDALONE_IDS.has(item.id)) {
+                  window.api.openProductionWindow();
+                  setSidebarAberta(false);
+                } else {
+                  setAbaAtiva(item.id);
+                  setSidebarAberta(false);
+                }
+              }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
-                isActive
+                isActive && !STANDALONE_IDS.has(item.id)
                   ? 'bg-blue-50 text-blue-700 font-semibold'
                   : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
               }`}
             >
-              <span className={isActive ? 'text-blue-600' : 'text-zinc-400'}>
+              <span className={isActive && !STANDALONE_IDS.has(item.id) ? 'text-blue-600' : 'text-zinc-400'}>
                 {item.icon}
               </span>
               {item.label}

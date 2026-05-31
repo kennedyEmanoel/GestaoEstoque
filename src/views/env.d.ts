@@ -177,6 +177,8 @@ declare global {
       createTrayFromSources: (data: CreateTrayFromSourcesInput)                        => Promise<ApiResponse>;
       getBoxLineage:         (boxId: string)                                           => Promise<ApiResponse<BoxLineage>>;
       finishInsumoStep:      (data: FinishInsumoStepInput)                             => Promise<ApiResponse>;
+      openProductionWindow:  ()                                                        => void;
+      closeProductionWindow: ()                                                        => void;
     };
   }
 }

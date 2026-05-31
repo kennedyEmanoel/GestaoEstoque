@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Chart as ChartJS,
   CategoryScale, LinearScale,
@@ -39,15 +39,14 @@ function corPct(pct: number | null): string {
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
-function Vazio({ height = 160 }: { height?: number }) {
+function Vazio({ height = 200 }: { height?: number }) {
   return (
-    <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 12 }}>
+    <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 16 }}>
       Sem registros para este período
     </div>
   );
 }
 
-/** Card de total no topo de cada seção de etapa */
 function EtapaHeader({ etapa, produto, totalRealizado, totalMeta, saldo, pctAtingimento }: EtapaResumo) {
   const cor = corEtapa(etapa);
 
@@ -55,18 +54,18 @@ function EtapaHeader({ etapa, produto, totalRealizado, totalMeta, saldo, pctAtin
     <div style={{
       background: cor.bg,
       color: cor.text,
-      borderRadius: '8px 8px 0 0',
-      padding: '10px 20px',
+      borderRadius: '10px 10px 0 0',
+      padding: '14px 28px',
       display: 'flex',
       alignItems: 'center',
-      gap: 32,
+      gap: 40,
       flexWrap: 'wrap',
     }}>
-      <div style={{ minWidth: 140 }}>
-        <div style={{ fontWeight: 800, fontSize: 15, letterSpacing: 1 }}>
+      <div style={{ minWidth: 160 }}>
+        <div style={{ fontWeight: 800, fontSize: 22, letterSpacing: 1.5 }}>
           {etapa.toUpperCase()}
         </div>
-        <div style={{ fontSize: 11, fontWeight: 600, opacity: 0.75, marginTop: 2 }}>
+        <div style={{ fontSize: 14, fontWeight: 600, opacity: 0.75, marginTop: 3 }}>
           {produto}
         </div>
       </div>
@@ -94,13 +93,12 @@ function EtapaHeader({ etapa, produto, totalRealizado, totalMeta, saldo, pctAtin
 function Stat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
     <div>
-      <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 1 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: 12, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 1.2 }}>{label}</div>
+      <div style={{ fontSize: 32, fontWeight: 800, color, lineHeight: 1.1 }}>{value}</div>
     </div>
   );
 }
 
-/** Gráfico de barras: realizado por operador na etapa */
 function BarOperadores({ operadores, corBarra }: { operadores: DadosPorOperador[]; corBarra: string }) {
   const data = {
     labels: operadores.map(o => o.operadorNome),
@@ -109,7 +107,7 @@ function BarOperadores({ operadores, corBarra }: { operadores: DadosPorOperador[
         label: 'Realizado',
         data: operadores.map(o => o.totalRealizado),
         backgroundColor: corBarra,
-        borderRadius: 4,
+        borderRadius: 6,
         barPercentage: 0.6,
       },
       {
@@ -120,7 +118,7 @@ function BarOperadores({ operadores, corBarra }: { operadores: DadosPorOperador[
             ? 'rgba(134,239,172,0.8)'
             : 'rgba(252,165,165,0.8)'
         ),
-        borderRadius: 4,
+        borderRadius: 6,
         barPercentage: 0.6,
       },
     ],
@@ -130,8 +128,10 @@ function BarOperadores({ operadores, corBarra }: { operadores: DadosPorOperador[
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'top' as const, labels: { font: { size: 11 } } },
+      legend: { position: 'top' as const, labels: { font: { size: 15 }, padding: 16 } },
       tooltip: {
+        titleFont: { size: 14 },
+        bodyFont: { size: 14 },
         callbacks: {
           afterLabel: (ctx: any) => {
             const op = operadores[ctx.dataIndex];
@@ -141,15 +141,14 @@ function BarOperadores({ operadores, corBarra }: { operadores: DadosPorOperador[
       },
     },
     scales: {
-      y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 11 } } },
-      x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+      y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 14 } } },
+      x: { grid: { display: false }, ticks: { font: { size: 14 } } },
     },
   };
 
   return <Bar data={data} options={options} />;
 }
 
-/** Rosca de distribuição de produção por operador */
 function DonutOperadores({ operadores }: { operadores: DadosPorOperador[] }) {
   const total = operadores.reduce((s, o) => s + o.totalRealizado, 0);
 
@@ -158,7 +157,7 @@ function DonutOperadores({ operadores }: { operadores: DadosPorOperador[] }) {
     datasets: [{
       data: operadores.map(o => o.totalRealizado),
       backgroundColor: COR_OP,
-      borderWidth: 2,
+      borderWidth: 3,
       borderColor: '#fff',
     }],
   };
@@ -167,8 +166,10 @@ function DonutOperadores({ operadores }: { operadores: DadosPorOperador[] }) {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'bottom' as const, labels: { font: { size: 11 }, boxWidth: 12 } },
+      legend: { position: 'bottom' as const, labels: { font: { size: 14 }, boxWidth: 16, padding: 14 } },
       tooltip: {
+        titleFont: { size: 14 },
+        bodyFont: { size: 14 },
         callbacks: {
           label: (ctx: any) => {
             const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : '0';
@@ -182,7 +183,6 @@ function DonutOperadores({ operadores }: { operadores: DadosPorOperador[] }) {
   return <Doughnut data={data} options={options} />;
 }
 
-/** Gráfico de barras consolidado: Meta vs Realizado por etapa */
 function BarConsolidado({ etapas }: { etapas: EtapaResumo[] }) {
   const data = {
     labels: etapas.map(e => e.etapa.toUpperCase()),
@@ -191,14 +191,14 @@ function BarConsolidado({ etapas }: { etapas: EtapaResumo[] }) {
         label: 'Total Realizado',
         data: etapas.map(e => e.totalRealizado),
         backgroundColor: etapas.map(e => corEtapa(e.etapa).bar),
-        borderRadius: 4,
+        borderRadius: 6,
         barPercentage: 0.5,
       },
       {
         label: 'Meta',
         data: etapas.map(e => e.totalMeta),
         backgroundColor: 'rgba(203,213,225,0.7)',
-        borderRadius: 4,
+        borderRadius: 6,
         barPercentage: 0.5,
       },
     ],
@@ -208,19 +208,18 @@ function BarConsolidado({ etapas }: { etapas: EtapaResumo[] }) {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'top' as const },
+      legend: { position: 'top' as const, labels: { font: { size: 15 }, padding: 16 } },
       title: { display: false },
     },
     scales: {
-      y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
-      x: { grid: { display: false } },
+      y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { font: { size: 14 } } },
+      x: { grid: { display: false }, ticks: { font: { size: 14 } } },
     },
   };
 
   return <Bar data={data} options={options} />;
 }
 
-/** Rosca de distribuição de produção por setor (etapa) */
 function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
   const total = etapas.reduce((s, e) => s + e.totalRealizado, 0);
 
@@ -229,7 +228,7 @@ function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
     datasets: [{
       data: etapas.map(e => e.totalRealizado),
       backgroundColor: etapas.map(e => corEtapa(e.etapa).bar),
-      borderWidth: 2,
+      borderWidth: 3,
       borderColor: '#fff',
     }],
   };
@@ -238,8 +237,10 @@ function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
-      legend: { position: 'right' as const, labels: { font: { size: 12 }, boxWidth: 14 } },
+      legend: { position: 'right' as const, labels: { font: { size: 15 }, boxWidth: 16, padding: 14 } },
       tooltip: {
+        titleFont: { size: 14 },
+        bodyFont: { size: 14 },
         callbacks: {
           label: (ctx: any) => {
             const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : '0';
@@ -255,19 +256,49 @@ function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function ProducaoDashboard() {
+export default function ProducaoDashboard({ standalone = false }: { standalone?: boolean }) {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [data, setData]           = useState(today);
-  const [produtoInput, setProduto] = useState('');
-  const [dados, setDados]          = useState<DashboardPorEtapasData | null>(null);
-  const [loading, setLoading]      = useState(false);
-  const [erro, setErro]            = useState<string | null>(null);
-  // controla quais seções estão expandidas
+  const [data, setData]             = useState(today);
+  const [produtoInput, setProduto]  = useState('');
+  const [dados, setDados]           = useState<DashboardPorEtapasData | null>(null);
+  const [loading, setLoading]       = useState(false);
+  const [erro, setErro]             = useState<string | null>(null);
   const [expandidas, setExpandidas] = useState<Record<string, boolean>>({});
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const toggleEtapa = (etapa: string) =>
     setExpandidas(prev => ({ ...prev, [etapa]: !prev[etapa] }));
+
+  // ── Fullscreen ───────────────────────────────────────────────────────────────
+
+  const toggleFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      rootRef.current?.requestFullscreen();
+    } else {
+      document.exitFullscreen();
+    }
+  }, []);
+
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F11' || e.key === 'f' || e.key === 'F') {
+        e.preventDefault();
+        toggleFullscreen();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleFullscreen]);
+
+  // ── Dados ────────────────────────────────────────────────────────────────────
 
   const carregar = useCallback(async (d: string, prod: string) => {
     setErro(null);
@@ -277,7 +308,6 @@ export default function ProducaoDashboard() {
       if (!res.success) throw new Error(res.error);
       const payload = res.data as DashboardPorEtapasData;
       setDados(payload);
-      // expande todas as etapas ao carregar
       const exp: Record<string, boolean> = {};
       payload.etapas.forEach(e => { exp[e.etapa] = true; });
       setExpandidas(exp);
@@ -290,7 +320,7 @@ export default function ProducaoDashboard() {
 
   useEffect(() => { carregar(today, ''); }, []);
 
-  // ─── Render ─────────────────────────────────────────────────────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   const totalGeral = dados?.totalGeral;
   const pctGeral   = totalGeral && totalGeral.meta > 0
@@ -298,48 +328,76 @@ export default function ProducaoDashboard() {
     : null;
 
   return (
-    <div style={{
+    <div ref={rootRef} style={{
       display: 'flex', flexDirection: 'column', height: '100%',
-      background: '#f1f5f9', fontFamily: 'system-ui, sans-serif', fontSize: 13,
+      background: '#0f172a', fontFamily: 'system-ui, sans-serif', fontSize: 15,
       overflow: 'auto',
     }}>
 
-      {/* ── Barra de filtros ── */}
+      {/* ── Barra de controles ── */}
       <div style={{
-        display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 16px', background: '#1e3a5f', flexWrap: 'wrap',
+        display: 'flex', alignItems: 'center', gap: 16,
+        padding: '12px 20px', background: '#1e3a5f', flexWrap: 'wrap', flexShrink: 0,
       }}>
+
+        {/* Título */}
+        <div style={{ color: '#f1f5f9', fontWeight: 800, fontSize: 18, letterSpacing: 1, marginRight: 8 }}>
+          PAINEL DE PRODUÇÃO
+        </div>
+
+        <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.15)' }} />
+
         <div>
-          <div style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>DATA</div>
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>DATA</div>
           <input type="date" value={data}
             onChange={e => setData(e.target.value)}
-            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', background: '#0f2542', color: '#f1f5f9', fontSize: 13, outline: 'none' }}
+            style={{ padding: '5px 10px', borderRadius: 5, border: '1px solid #334155', background: '#0f2542', color: '#f1f5f9', fontSize: 14, outline: 'none' }}
           />
         </div>
 
         <div>
-          <div style={{ color: '#94a3b8', fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>PRODUTO</div>
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 700, letterSpacing: 1 }}>PRODUTO</div>
           <input
             value={produtoInput}
             onChange={e => setProduto(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && carregar(data, produtoInput)}
             placeholder="Todos"
-            style={{ padding: '4px 8px', borderRadius: 4, border: '1px solid #334155', background: '#0f2542', color: '#f1f5f9', fontSize: 13, outline: 'none', width: 130 }}
+            style={{ padding: '5px 10px', borderRadius: 5, border: '1px solid #334155', background: '#0f2542', color: '#f1f5f9', fontSize: 14, outline: 'none', width: 140 }}
           />
         </div>
 
-        <div style={{ marginTop: 14 }}>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
           <button
             onClick={() => carregar(data, produtoInput)}
             disabled={loading}
-            style={{ padding: '5px 18px', borderRadius: 4, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}
+            style={{ padding: '7px 22px', borderRadius: 5, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}
           >
             {loading ? 'Carregando...' : 'Atualizar'}
           </button>
+
+          {/* Toggle fullscreen */}
+          <button
+            onClick={toggleFullscreen}
+            title={isFullscreen ? 'Sair da tela cheia (F11)' : 'Tela cheia (F11)'}
+            style={{ padding: '7px 14px', borderRadius: 5, border: '1px solid #334155', background: '#1e293b', color: '#94a3b8', cursor: 'pointer', fontSize: 18, lineHeight: 1, display: 'flex', alignItems: 'center' }}
+          >
+            {isFullscreen ? '⛶' : '⛶'}
+            <span style={{ fontSize: 12, marginLeft: 6, color: '#64748b' }}>F11</span>
+          </button>
+
+          {standalone && (
+            <button
+              onClick={() => window.api.closeProductionWindow()}
+              style={{ padding: '7px 16px', borderRadius: 5, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 14 }}
+            >
+              Fechar
+            </button>
+          )}
         </div>
 
+        {/* Pills de totais gerais */}
         {dados && (
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 24, alignItems: 'center' }}>
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 28, alignItems: 'center' }}>
             <TotalPill label="TOTAL REALIZADO" value={totalGeral?.realizado ?? 0} color="#86efac" />
             <TotalPill label="META TOTAL"      value={totalGeral?.meta      ?? 0} color="#93c5fd" />
             <TotalPill
@@ -356,64 +414,105 @@ export default function ProducaoDashboard() {
 
       {/* Erro */}
       {erro && (
-        <div style={{ background: '#fee2e2', color: '#991b1b', padding: '8px 16px', fontSize: 12 }}>
-          {erro} <button style={{ marginLeft: 8, cursor: 'pointer', background: 'none', border: 'none' }} onClick={() => setErro(null)}>✕</button>
+        <div style={{ background: '#450a0a', color: '#fca5a5', padding: '10px 20px', fontSize: 14, flexShrink: 0 }}>
+          {erro}
+          <button style={{ marginLeft: 10, cursor: 'pointer', background: 'none', border: 'none', color: '#fca5a5', fontSize: 16 }} onClick={() => setErro(null)}>✕</button>
         </div>
       )}
 
       {/* Vazio */}
       {!loading && dados && dados.etapas.length === 0 && (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#475569', fontSize: 18 }}>
           Nenhuma ficha encontrada para {data}.
         </div>
       )}
 
-      <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+      {/* ── Conteúdo principal ── */}
+      <div style={{ padding: '18px 20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
 
-        {/* ── Seção por etapa ── */}
+        {/* Cards de etapa */}
         {dados?.etapas.map(etapa => {
-          const aberta = expandidas[etapa.etapa] !== false;
-          const cor    = corEtapa(etapa.etapa);
+          const aberta   = expandidas[etapa.etapa] !== false;
+          const cor      = corEtapa(etapa.etapa);
           const temDados = etapa.porOperador.some(o => o.totalRealizado > 0 || o.totalMeta > 0);
 
           return (
-            <div key={etapa.etapa} style={{ borderRadius: 8, overflow: 'hidden', boxShadow: '0 1px 6px rgba(0,0,0,0.10)' }}>
+            <div key={etapa.etapa} style={{ borderRadius: 10, overflow: 'hidden', boxShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>
 
-              {/* Cabeçalho clicável */}
-              <div
-                onClick={() => toggleEtapa(etapa.etapa)}
-                style={{ cursor: 'pointer' }}
-              >
+              <div onClick={() => toggleEtapa(etapa.etapa)} style={{ cursor: 'pointer' }}>
                 <EtapaHeader {...etapa} />
               </div>
 
-              {/* Corpo colapsável */}
               {aberta && (
-                <div style={{ background: '#fff', padding: 16, display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                <div style={{ background: '#1e293b', padding: 20, display: 'flex', gap: 20, flexWrap: 'wrap' }}>
 
-                  {/* Gráfico de barras por operador (maior, flex 2) */}
-                  <div style={{ flex: 2, minWidth: 260 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>
-                      Realizado × Saldo por Operador
+                  <div style={{ flex: 2, minWidth: 300 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#94a3b8', marginBottom: 10, letterSpacing: 0.5 }}>
+                      REALIZADO × SALDO POR OPERADOR
                     </div>
-                    <div style={{ height: 200 }}>
+                    <div style={{ height: 260 }}>
                       {temDados
                         ? <BarOperadores operadores={etapa.porOperador} corBarra={cor.bar} />
-                        : <Vazio height={200} />
+                        : <Vazio height={260} />
                       }
                     </div>
                   </div>
 
-                  {/* Rosca de distribuição (flex 1) */}
-                  <div style={{ flex: 1, minWidth: 180 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>
-                      Distribuição
+                  <div style={{ flex: 1, minWidth: 220 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#94a3b8', marginBottom: 10, letterSpacing: 0.5 }}>
+                      DISTRIBUIÇÃO
                     </div>
-                    <div style={{ height: 200 }}>
+                    <div style={{ height: 260 }}>
                       {temDados && etapa.porOperador.length > 0
                         ? <DonutOperadores operadores={etapa.porOperador} />
-                        : <Vazio height={200} />
+                        : <Vazio height={260} />
                       }
+                    </div>
+                  </div>
+
+                  {/* Tabela de operadores */}
+                  <div style={{ width: '100%' }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: '#94a3b8', marginBottom: 10, letterSpacing: 0.5 }}>
+                      DETALHE POR OPERADOR
+                    </div>
+                    <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                      {etapa.porOperador.map((op, i) => {
+                        const pct = op.totalMeta > 0 ? (op.totalRealizado / op.totalMeta) * 100 : null;
+                        const saldo = op.totalRealizado - op.totalMeta;
+                        return (
+                          <div key={op.operadorNome} style={{
+                            background: '#0f172a', borderRadius: 8, padding: '14px 20px',
+                            minWidth: 180, flex: '1 1 180px',
+                            borderLeft: `4px solid ${COR_OP[i % COR_OP.length]}`,
+                          }}>
+                            <div style={{ fontSize: 15, fontWeight: 800, color: '#f1f5f9', marginBottom: 8 }}>
+                              {op.operadorNome}
+                            </div>
+                            <div style={{ display: 'flex', gap: 20 }}>
+                              <div>
+                                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>REAL.</div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: '#f1f5f9', lineHeight: 1 }}>{op.totalRealizado}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>META</div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: '#94a3b8', lineHeight: 1 }}>{op.totalMeta}</div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>SALDO</div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: saldo >= 0 ? '#86efac' : '#fca5a5', lineHeight: 1 }}>
+                                  {saldo >= 0 ? `+${saldo}` : saldo}
+                                </div>
+                              </div>
+                              <div>
+                                <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700 }}>%</div>
+                                <div style={{ fontSize: 26, fontWeight: 800, color: corPct(pct), lineHeight: 1 }}>
+                                  {pct !== null ? `${pct.toFixed(0)}%` : '—'}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -423,25 +522,25 @@ export default function ProducaoDashboard() {
           );
         })}
 
-        {/* ── Painel consolidado (só aparece se há ≥ 2 etapas) ── */}
+        {/* Consolidado */}
         {dados && dados.etapas.length >= 2 && (
-          <div style={{ background: '#fff', borderRadius: 8, padding: 16, boxShadow: '0 1px 6px rgba(0,0,0,0.10)' }}>
-            <div style={{ fontWeight: 700, fontSize: 13, color: '#1e293b', marginBottom: 14 }}>
-              Consolidado — Meta vs Realizado por Setor
+          <div style={{ background: '#1e293b', borderRadius: 10, padding: 20, boxShadow: '0 2px 12px rgba(0,0,0,0.35)' }}>
+            <div style={{ fontWeight: 800, fontSize: 16, color: '#f1f5f9', marginBottom: 18, letterSpacing: 0.5 }}>
+              CONSOLIDADO — META vs REALIZADO POR SETOR
             </div>
-            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap' }}>
 
-              <div style={{ flex: 2, minWidth: 260 }}>
-                <div style={{ height: 220 }}>
+              <div style={{ flex: 2, minWidth: 300 }}>
+                <div style={{ height: 280 }}>
                   <BarConsolidado etapas={dados.etapas} />
                 </div>
               </div>
 
-              <div style={{ flex: 1, minWidth: 200 }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 8 }}>
-                  Produção por Setor
+              <div style={{ flex: 1, minWidth: 240 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: '#94a3b8', marginBottom: 10, letterSpacing: 0.5 }}>
+                  PRODUÇÃO POR SETOR
                 </div>
-                <div style={{ height: 220 }}>
+                <div style={{ height: 280 }}>
                   <DonutSetores etapas={dados.etapas} />
                 </div>
               </div>
@@ -455,15 +554,15 @@ export default function ProducaoDashboard() {
   );
 }
 
-// ─── Pill de total na barra de filtros ───────────────────────────────────────
+// ─── Pill de total na barra de controles ──────────────────────────────────────
 
 function TotalPill({ label, value, color, isString }: {
   label: string; value: number | string; color: string; isString?: boolean;
 }) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 10, color: '#94a3b8', fontWeight: 700, letterSpacing: 1 }}>{label}</div>
-      <div style={{ fontSize: 20, fontWeight: 800, color }}>
+      <div style={{ fontSize: 11, color: '#64748b', fontWeight: 700, letterSpacing: 1.2 }}>{label}</div>
+      <div style={{ fontSize: 28, fontWeight: 800, color, lineHeight: 1.1 }}>
         {isString ? value : (value as number).toLocaleString('pt-BR')}
       </div>
     </div>

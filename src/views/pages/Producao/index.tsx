@@ -16,14 +16,11 @@ const BLOCOS_HORARIOS = [
   '09:15 - 10:12',
   '10:00 - 11:00',
   '11:00 - 12:00',
-  '12:00 - 13:00',
   '13:00 - 14:00',
   '14:00 - 15:00',
   '15:00 - 16:00',
   '16:00 - 17:12',
 ];
-
-const BLOCOS_ALMOCO = new Set(['12:00 - 13:00']);
 
 const COR_OP = ['#e67e22','#27ae60','#8e44ad','#2980b9','#c0392b','#f39c12','#16a085','#d35400'];
 
@@ -324,56 +321,49 @@ export default function Producao() {
 
               <tbody>
                 {BLOCOS_HORARIOS.map(bloco => {
-                  const almoco   = BLOCOS_ALMOCO.has(bloco);
                   const totReal  = totalRealizadoBloco(ficha.operadores, bloco);
                   const totMeta  = totalMetaBloco(ficha.operadores, bloco);
                   const p        = pct(totReal, totMeta);
-                  const rowBg    = almoco ? '#f1f5f9' : undefined;
 
                   return (
-                    <tr key={bloco} style={{ background: rowBg }}>
+                    <tr key={bloco}>
                       {/* Coluna de horário */}
                       <td style={{
                         padding: '3px 7px', fontWeight: 600, fontSize: 10, whiteSpace: 'nowrap',
-                        background: almoco ? '#e9edf2' : '#f8fafc',
+                        background: '#f8fafc',
                         borderBottom: '1px solid #e2e8f0', borderRight: '2px solid #cbd5e1',
-                        color: almoco ? '#94a3b8' : '#374151',
+                        color: '#374151',
                       }}>
                         {bloco}
-                        {almoco && <span style={{ marginLeft: 4, fontSize: 9, background: '#cbd5e1', color: '#475569', borderRadius: 2, padding: '0 3px', fontWeight: 700 }}>ALM</span>}
                       </td>
 
                       {/* Células por operador */}
                       {ficha.operadores.map(op => {
                         const reg       = getReg(op, bloco);
-                        const meta      = almoco ? 0 : (reg?.meta ?? 0);
+                        const meta      = reg?.meta ?? 0;
                         const realizado = reg?.realizado ?? 0;
                         const saldo     = realizado - meta;
-                        const bgAlm     = { background: '#e9edf2' };
 
                         return (
                           <>
                             {/* Meta */}
-                            <td key={`${op.id}-m`} style={TD(almoco ? bgAlm : undefined)}>
-                              {almoco
-                                ? <span style={{ color: '#94a3b8' }}>—</span>
-                                : <input type="number" min={0}
-                                    value={meta === 0 && !reg ? ficha.metaHoraPadrao : meta}
-                                    style={cellInput}
-                                    onChange={e => handleCell(op.id, bloco, 'meta', e.target.value)}
-                                  />
-                              }
+                            <td key={`${op.id}-m`} style={TD()}>
+                              <input type="number" min={0}
+                                value={meta === 0 && !reg ? ficha.metaHoraPadrao : meta}
+                                style={cellInput}
+                                onChange={e => handleCell(op.id, bloco, 'meta', e.target.value)}
+                              />
                             </td>
                             {/* Realizado */}
-                            <td key={`${op.id}-r`} style={TD(almoco ? bgAlm : undefined)}>
+                            <td key={`${op.id}-r`} style={TD()}>
                               <input type="number" min={0} value={realizado}
-                                style={{ ...cellInput, background: almoco ? '#e9edf2' : '#f0fdf4' }}
+                                style={{ ...cellInput, background: '#f0fdf4' }}
                                 onChange={e => handleCell(op.id, bloco, 'realizado', e.target.value)}
                               />
                             </td>
                             {/* Saldo */}
-                            <td key={`${op.id}-s`} style={TD(almoco ? { ...bgAlm, color: '#94a3b8' } : { color: corSaldo(saldo), fontWeight: 700 })}>
-                              {almoco ? '—' : reg ? (saldo > 0 ? `+${saldo}` : saldo) : '—'}
+                            <td key={`${op.id}-s`} style={TD({ color: corSaldo(saldo), fontWeight: 700 })}>
+                              {reg ? (saldo > 0 ? `+${saldo}` : saldo) : '—'}
                             </td>
                           </>
                         );
