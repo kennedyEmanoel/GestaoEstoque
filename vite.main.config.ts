@@ -5,7 +5,8 @@ export default defineConfig({
     rollupOptions: {
       external: [
         'better-sqlite3',
-        // O worker é compilado como entry separado; não deve ser bundlado no main.
+        'drizzle-orm',
+        /^drizzle-orm\/.*/,
         /.*\/worker\/dbWorker(\.js)?$/,
       ],
     },
