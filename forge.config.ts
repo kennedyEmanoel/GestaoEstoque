@@ -3,6 +3,7 @@ import { MakerSquirrel } from '@electron-forge/maker-squirrel';
 import { MakerZIP } from '@electron-forge/maker-zip';
 import { MakerDeb } from '@electron-forge/maker-deb';
 import { MakerRpm } from '@electron-forge/maker-rpm';
+import { PublisherGithub } from '@electron-forge/publisher-github';
 import { VitePlugin } from '@electron-forge/plugin-vite';
 import { FusesPlugin } from '@electron-forge/plugin-fuses';
 import { AutoUnpackNativesPlugin } from '@electron-forge/plugin-auto-unpack-natives';
@@ -42,6 +43,12 @@ const config: ForgeConfig = {
       }
     },
   },
+  publishers: [
+    new PublisherGithub({
+      repository: { owner: 'kennedyEmanoel', name: 'GestaoEstoque' },
+      prerelease: false,
+    }),
+  ],
   makers: [
     new MakerSquirrel({
       name: 'GestaoEstoque',

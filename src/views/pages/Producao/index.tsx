@@ -26,7 +26,11 @@ const COR_OP = ['#e67e22','#27ae60','#8e44ad','#2980b9','#c0392b','#f39c12','#16
 
 // ─── Tipos locais ─────────────────────────────────────────────────────────────
 
+// Chave: "opId-bloco"
 type CellKey = `${number}-${string}`;
+
+// Rascunho local antes de salvar — valores digitados pelo usuário
+type Draft = Record<CellKey, { meta: string; realizado: string }>;
 
 interface FiltroState {
   data: string;
@@ -81,13 +85,23 @@ export default function Producao() {
   const [novoOp, setNovoOp]     = useState('');
   const [addingOp, setAddingOp] = useState(false);
 
-  const debounceRef = useRef<Record<CellKey, ReturnType<typeof setTimeout>>>({});
-  const fichaRef    = useRef<FichaDiariaCompleta | null>(null);
+  // Rascunho: valores que o usuário digitou mas ainda não salvou
+  const [draft, setDraft] = useState<Draft>({});
+  // Células com save em andamento
+  const [saving, setSaving] = useState<Set<CellKey>>(new Set());
+  // Células salvas com sucesso (feedback visual temporário)
+  const [saved, setSaved] = useState<Set<CellKey>>(new Set());
+
+  // Refs que espelham sempre o valor atual — usados dentro de callbacks estáveis
+  const fichaRef = useRef<FichaDiariaCompleta | null>(null);
+  const draftRef = useRef<Draft>({});
+  fichaRef.current = ficha;
+  draftRef.current = draft;
 
   // ── Carregar / criar ────────────────────────────────────────────────────────
 
   const carregarFicha = useCallback(async (criar = false) => {
-    setErro(null); setLoading(true);
+    setErro(null); setLoading(true); setDraft({});
     try {
       const res = criar
         ? await window.api.getOrCreateFicha({
@@ -98,8 +112,7 @@ export default function Producao() {
             data: filtro.data, produto: filtro.produto, etapa: filtro.etapa,
           });
       if (!res.success) throw new Error(res.error);
-      const f = (res.data as FichaDiariaCompleta | null) ?? null;
-      setFicha(f); fichaRef.current = f;
+      setFicha((res.data as FichaDiariaCompleta | null) ?? null);
     } catch (e: any) { setErro(e.message ?? 'Erro'); }
     finally { setLoading(false); }
   }, [filtro]);
@@ -114,11 +127,10 @@ export default function Producao() {
         fichaId: ficha.id, operadorNome: novoOp.trim().toUpperCase(),
       });
       if (!res.success) { setErro(res.error ?? 'Erro'); return; }
-      const updated: FichaDiariaCompleta = {
+      setFicha({
         ...ficha,
         operadores: [...ficha.operadores, { ...(res.data as any), registros: [] }],
-      };
-      setFicha(updated); fichaRef.current = updated;
+      });
       setNovoOp('');
     } finally { setAddingOp(false); }
   };
@@ -127,63 +139,127 @@ export default function Producao() {
     if (!ficha) return;
     const res = await window.api.removeOperador({ operadorDiarioId: id });
     if (!res.success) { setErro(res.error ?? 'Erro'); return; }
-    const updated: FichaDiariaCompleta = {
-      ...ficha, operadores: ficha.operadores.filter(op => op.id !== id),
-    };
-    setFicha(updated); fichaRef.current = updated;
-  };
-
-  // ── Edição de célula ────────────────────────────────────────────────────────
-
-  const handleCell = useCallback((opId: number, bloco: string, field: 'meta' | 'realizado', raw: string) => {
-    const value = parseInt(raw, 10);
-    if (isNaN(value) || value < 0) return;
-
-    setFicha(prev => {
-      if (!prev) return prev;
-      const next: FichaDiariaCompleta = {
-        ...prev,
-        operadores: prev.operadores.map(op => {
-          if (op.id !== opId) return op;
-          const existing = op.registros.find(r => r.horarioBloco === bloco);
-          if (existing) {
-            return { ...op, registros: op.registros.map(r => r.horarioBloco === bloco ? { ...r, [field]: value } : r) };
-          }
-          return {
-            ...op,
-            registros: [...op.registros, {
-              id: -1, operadorDiarioId: op.id, horarioBloco: bloco,
-              meta:      field === 'meta'      ? value : prev.metaHoraPadrao,
-              realizado: field === 'realizado' ? value : 0,
-            }],
-          };
-        }),
-      };
-      fichaRef.current = next;
+    setFicha({ ...ficha, operadores: ficha.operadores.filter(op => op.id !== id) });
+    // Limpa rascunhos do operador removido
+    setDraft(prev => {
+      const next = { ...prev };
+      Object.keys(next).forEach(k => { if (k.startsWith(`${id}-`)) delete next[k as CellKey]; });
       return next;
     });
+  };
+
+  // ── Rascunho local (sem salvar) ──────────────────────────────────────────────
+
+  // Lê rascunho ou valor confirmado no banco — usa refs para nunca ter closure stale
+  const getDraftOrReg = useCallback((opId: number, bloco: string): { meta: string; realizado: string } => {
+    const key: CellKey = `${opId}-${bloco}`;
+    const curDraft = draftRef.current;
+    const curFicha = fichaRef.current;
+    if (curDraft[key]) return curDraft[key];
+    const op  = curFicha?.operadores.find(o => o.id === opId);
+    const reg = op ? getReg(op as any, bloco) : undefined;
+    return {
+      meta:      reg ? String(reg.meta)      : String(curFicha?.metaHoraPadrao ?? 0),
+      realizado: reg ? String(reg.realizado) : '0',
+    };
+  }, []);
+
+  const handleDraftChange = (opId: number, bloco: string, field: 'meta' | 'realizado', raw: string) => {
+    const key: CellKey = `${opId}-${bloco}`;
+    setDraft(prev => {
+      const current = prev[key] ?? getDraftOrReg(opId, bloco);
+      return { ...prev, [key]: { ...current, [field]: raw } };
+    });
+  };
+
+  // ── Salvar uma célula (linha do operador × bloco) ───────────────────────────
+
+  const handleSalvar = useCallback(async (opId: number, bloco: string) => {
+    if (!fichaRef.current) return;
 
     const key: CellKey = `${opId}-${bloco}`;
-    clearTimeout(debounceRef.current[key]);
-    debounceRef.current[key] = setTimeout(async () => {
-      const cur = fichaRef.current;
-      if (!cur) return;
-      const op  = cur.operadores.find(o => o.id === opId);
-      const reg = op?.registros.find(r => r.horarioBloco === bloco);
-      if (!op || !reg) return;
+    const values = getDraftOrReg(opId, bloco);
+
+    const meta      = parseInt(values.meta,      10);
+    const realizado = parseInt(values.realizado, 10);
+
+    // Validação: meta obrigatória e maior que zero
+    if (isNaN(meta) || meta <= 0) {
+      setErro(`Informe a meta para o horário ${bloco} antes de salvar.`);
+      return;
+    }
+    if (isNaN(realizado) || realizado < 0) {
+      setErro(`Valor de realizado inválido para o horário ${bloco}.`);
+      return;
+    }
+
+    setSaving(prev => new Set(prev).add(key));
+    setErro(null);
+
+    try {
+      // upsertRegistro usa INSERT ... ON CONFLICT DO UPDATE — trata criação e atualização
       const res = await window.api.upsertRegistro({
-        operadorDiarioId: op.id, horarioBloco: bloco, meta: reg.meta, realizado: reg.realizado,
+        operadorDiarioId: opId,
+        horarioBloco: bloco,
+        meta,
+        realizado,
       });
-      if (!res.success) setErro(res.error ?? 'Erro ao salvar');
-    }, 600);
-  }, []);
+
+      if (!res.success) {
+        setErro(res.error ?? 'Erro ao salvar');
+        return;
+      }
+
+      const savedReg = res.data as RegistroHorario;
+
+      // Atualiza o estado local da ficha com o registro confirmado pelo banco
+      setFicha(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          operadores: prev.operadores.map(op => {
+            if (op.id !== opId) return op;
+            const existe = op.registros.find(r => r.horarioBloco === bloco);
+            return {
+              ...op,
+              registros: existe
+                ? op.registros.map(r => r.horarioBloco === bloco ? savedReg : r)
+                : [...op.registros, savedReg],
+            };
+          }),
+        };
+      });
+
+      // Remove o rascunho — o valor oficial agora é o que veio do banco
+      setDraft(prev => {
+        const next = { ...prev };
+        delete next[key];
+        return next;
+      });
+
+      // Feedback visual de sucesso por 1,5s
+      setSaved(prev => new Set(prev).add(key));
+      setTimeout(() => setSaved(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      }), 1500);
+
+    } finally {
+      setSaving(prev => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  }, [getDraftOrReg]);
 
   const handleMetaPadrao = async (v: number) => {
     if (!ficha) return;
     setFiltro(f => ({ ...f, metaHoraPadrao: v }));
     const res = await window.api.updateMetaHoraPadrao(ficha.id, v);
     if (!res.success) setErro(res.error ?? 'Erro');
-    else { const u = { ...ficha, metaHoraPadrao: v }; setFicha(u); fichaRef.current = u; }
+    else setFicha({ ...ficha, metaHoraPadrao: v });
   };
 
   // ── Totais ──────────────────────────────────────────────────────────────────
@@ -207,16 +283,15 @@ export default function Producao() {
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#1e3a5f', flexShrink: 0, flexWrap: 'wrap' }}>
 
-        {/* Filtros */}
         {([
-          { label: 'DATA',      node: <input type="date" value={filtro.data} onChange={e => setFiltro(f => ({ ...f, data: e.target.value }))} style={inp} /> },
-          { label: 'PRODUTO',   node: <input value={filtro.produto} onChange={e => setFiltro(f => ({ ...f, produto: e.target.value }))} placeholder="Produto" style={{ ...inp, width: 110 }} /> },
-          { label: 'ETAPA',     node: (
+          { label: 'DATA',    node: <input type="date" value={filtro.data} onChange={e => setFiltro(f => ({ ...f, data: e.target.value }))} style={inp} /> },
+          { label: 'PRODUTO', node: <input value={filtro.produto} onChange={e => setFiltro(f => ({ ...f, produto: e.target.value }))} placeholder="Produto" style={{ ...inp, width: 110 }} /> },
+          { label: 'ETAPA',   node: (
             <select value={filtro.etapa} onChange={e => setFiltro(f => ({ ...f, etapa: e.target.value as EtapaProducao }))} style={inp}>
               {ETAPAS.map(e => <option key={e} value={e}>{e}</option>)}
             </select>
           )},
-          { label: 'META/H',    node: <input type="number" min={0} value={filtro.metaHoraPadrao} onChange={e => setFiltro(f => ({ ...f, metaHoraPadrao: parseInt(e.target.value) || 0 }))} style={{ ...inp, width: 52 }} /> },
+          { label: 'META/H',  node: <input type="number" min={0} value={filtro.metaHoraPadrao} onChange={e => setFiltro(f => ({ ...f, metaHoraPadrao: parseInt(e.target.value) || 0 }))} style={{ ...inp, width: 52 }} /> },
         ] as const).map(({ label, node }) => (
           <div key={label}>
             <div style={{ color: '#64748b', fontSize: 9, fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>{label}</div>
@@ -224,13 +299,11 @@ export default function Producao() {
           </div>
         ))}
 
-        {/* Botões */}
         <div style={{ display: 'flex', gap: 6, alignSelf: 'flex-end', marginBottom: 1 }}>
           <button style={btnStyle('#334155')} onClick={() => carregarFicha(false)} disabled={loading}>Consultar</button>
           <button style={btnStyle('#16a34a')} onClick={() => carregarFicha(true)}  disabled={loading}>{loading ? '...' : 'Abrir / Criar'}</button>
         </div>
 
-        {/* Meta padrão da ficha aberta */}
         {ficha && (
           <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6, color: '#94a3b8', fontSize: 11 }}>
             <span>Ficha #{ficha.id} | Meta padrão:</span>
@@ -238,7 +311,6 @@ export default function Producao() {
               onChange={e => handleMetaPadrao(parseInt(e.target.value) || 0)}
               style={{ ...inp, width: 44, display: 'inline-block' }}
             />
-            {/* Adicionar operador inline */}
             <span style={{ marginLeft: 8 }}>| + Operador:</span>
             <input
               value={novoOp} placeholder="Nome"
@@ -261,18 +333,16 @@ export default function Producao() {
         </div>
       )}
 
-      {/* Vazio */}
       {!ficha && !loading && (
         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>
           Selecione os filtros e clique em "Abrir / Criar" para começar.
         </div>
       )}
 
-      {/* ── Tabela — ocupa todo o espaço restante com scroll próprio ── */}
+      {/* ── Tabela ── */}
       {ficha && (
         <div style={{ flex: 1, minHeight: 0, overflow: 'auto', padding: '8px 10px' }}>
 
-          {/* Título da ficha */}
           <div style={{
             background: '#1e3a5f', color: '#fff', padding: '5px 12px',
             borderRadius: '5px 5px 0 0', marginBottom: -1,
@@ -291,11 +361,10 @@ export default function Producao() {
               tableLayout: 'auto', fontSize: 11,
             }}>
               <thead>
-                {/* Linha 1 — nomes dos operadores */}
                 <tr>
                   <th rowSpan={2} style={{ ...TH('#1e3a5f'), width: 105, minWidth: 105 }}>HORÁRIO</th>
                   {ficha.operadores.map((op, i) => (
-                    <th key={op.id} colSpan={3} style={{ ...TH(COR_OP[i % COR_OP.length]), minWidth: 148 }}>
+                    <th key={op.id} colSpan={4} style={{ ...TH(COR_OP[i % COR_OP.length]), minWidth: 190 }}>
                       <span style={{ fontSize: 11 }}>{op.operadorNome}</span>
                       <button onClick={() => handleRemoveOp(op.id)}
                         style={{ marginLeft: 6, background: 'none', border: 'none', color: 'rgba(255,255,255,0.6)', cursor: 'pointer', fontSize: 11, lineHeight: 1 }}>
@@ -307,13 +376,13 @@ export default function Producao() {
                   <th rowSpan={2} style={{ ...TH('#0f766e'), minWidth: 52 }}>TOT.<br/>META</th>
                   <th rowSpan={2} style={{ ...TH('#0f766e'), minWidth: 58 }}>%<br/>ATING.</th>
                 </tr>
-                {/* Linha 2 — sub-cabeçalhos */}
                 <tr>
                   {ficha.operadores.map(op => (
                     <>
                       <th key={`${op.id}-m`} style={TH('#334155', '#64748b')}>META</th>
                       <th key={`${op.id}-r`} style={TH('#334155', '#64748b')}>REAL.</th>
                       <th key={`${op.id}-s`} style={TH('#334155', '#64748b')}>SALDO</th>
+                      <th key={`${op.id}-sv`} style={TH('#334155', '#64748b')}></th>
                     </>
                   ))}
                 </tr>
@@ -321,55 +390,74 @@ export default function Producao() {
 
               <tbody>
                 {BLOCOS_HORARIOS.map(bloco => {
-                  const totReal  = totalRealizadoBloco(ficha.operadores, bloco);
-                  const totMeta  = totalMetaBloco(ficha.operadores, bloco);
-                  const p        = pct(totReal, totMeta);
+                  const totReal = totalRealizadoBloco(ficha.operadores, bloco);
+                  const totMeta = totalMetaBloco(ficha.operadores, bloco);
+                  const p       = pct(totReal, totMeta);
 
                   return (
                     <tr key={bloco}>
-                      {/* Coluna de horário */}
                       <td style={{
                         padding: '3px 7px', fontWeight: 600, fontSize: 10, whiteSpace: 'nowrap',
-                        background: '#f8fafc',
-                        borderBottom: '1px solid #e2e8f0', borderRight: '2px solid #cbd5e1',
-                        color: '#374151',
+                        background: '#f8fafc', borderBottom: '1px solid #e2e8f0',
+                        borderRight: '2px solid #cbd5e1', color: '#374151',
                       }}>
                         {bloco}
                       </td>
 
-                      {/* Células por operador */}
                       {ficha.operadores.map(op => {
-                        const reg       = getReg(op, bloco);
-                        const meta      = reg?.meta ?? 0;
-                        const realizado = reg?.realizado ?? 0;
-                        const saldo     = realizado - meta;
+                        const key: CellKey  = `${op.id}-${bloco}`;
+                        const reg           = getReg(op as any, bloco);
+                        const values        = getDraftOrReg(op.id, bloco);
+                        const isDirty       = !!draft[key];
+                        const isSaving      = saving.has(key);
+                        const wasSaved      = saved.has(key);
+                        const metaNum       = parseInt(values.meta, 10);
+                        const realizadoNum  = parseInt(values.realizado, 10);
+                        const saldo         = (isNaN(realizadoNum) ? 0 : realizadoNum) - (isNaN(metaNum) ? 0 : metaNum);
+                        const metaInvalida  = isNaN(metaNum) || metaNum <= 0;
 
                         return (
                           <>
                             {/* Meta */}
-                            <td key={`${op.id}-m`} style={TD()}>
-                              <input type="number" min={0}
-                                value={meta === 0 && !reg ? ficha.metaHoraPadrao : meta}
-                                style={cellInput}
-                                onChange={e => handleCell(op.id, bloco, 'meta', e.target.value)}
+                            <td key={`${op.id}-m`} style={TD(isDirty ? { background: '#fefce8' } : undefined)}>
+                              <input
+                                type="number" min={0}
+                                value={values.meta}
+                                style={{ ...cellInput, borderColor: metaInvalida && isDirty ? '#fca5a5' : '#cbd5e1' }}
+                                onChange={e => handleDraftChange(op.id, bloco, 'meta', e.target.value)}
                               />
                             </td>
+
                             {/* Realizado */}
-                            <td key={`${op.id}-r`} style={TD()}>
-                              <input type="number" min={0} value={realizado}
+                            <td key={`${op.id}-r`} style={TD(isDirty ? { background: '#fefce8' } : undefined)}>
+                              <input
+                                type="number" min={0}
+                                value={values.realizado}
                                 style={{ ...cellInput, background: '#f0fdf4' }}
-                                onChange={e => handleCell(op.id, bloco, 'realizado', e.target.value)}
+                                onChange={e => handleDraftChange(op.id, bloco, 'realizado', e.target.value)}
                               />
                             </td>
-                            {/* Saldo */}
+
+                            {/* Saldo (calculado ao vivo a partir do rascunho) */}
                             <td key={`${op.id}-s`} style={TD({ color: corSaldo(saldo), fontWeight: 700 })}>
-                              {reg ? (saldo > 0 ? `+${saldo}` : saldo) : '—'}
+                              {(reg || isDirty) ? (saldo > 0 ? `+${saldo}` : saldo) : '—'}
+                            </td>
+
+                            {/* Botão Salvar */}
+                            <td key={`${op.id}-sv`} style={TD({ padding: '2px 4px' })}>
+                              <button
+                                onClick={() => handleSalvar(op.id, bloco)}
+                                disabled={isSaving || metaInvalida}
+                                title={metaInvalida ? 'Informe a meta antes de salvar' : 'Salvar este registro'}
+                                style={saveBtnStyle(isSaving, wasSaved, metaInvalida)}
+                              >
+                                {isSaving ? '...' : wasSaved ? '✓' : 'Salvar'}
+                              </button>
                             </td>
                           </>
                         );
                       })}
 
-                      {/* Totais da linha */}
                       <td style={TD({ fontWeight: 700, fontSize: 11 })}>{totReal || '—'}</td>
                       <td style={TD({ fontWeight: 700, fontSize: 11 })}>{totMeta || '—'}</td>
                       <td style={TD({ fontWeight: 700, color: corPct(p), fontSize: 11 })}>
@@ -379,7 +467,7 @@ export default function Producao() {
                   );
                 })}
 
-                {/* Rodapé — totais gerais */}
+                {/* Rodapé */}
                 <tr style={{ background: '#1e3a5f', color: '#fff', fontWeight: 700 }}>
                   <td style={{ padding: '4px 7px', fontSize: 10, fontWeight: 700, borderRight: '2px solid rgba(255,255,255,0.1)', whiteSpace: 'nowrap' }}>
                     TOTAL GERAL
@@ -388,11 +476,12 @@ export default function Producao() {
                     const saldo = t.realizado - t.meta;
                     return (
                       <>
-                        <td key={`${t.id}-m`} style={TD({ color: '#fff', fontWeight: 700, fontSize: 11 })}>{t.meta}</td>
-                        <td key={`${t.id}-r`} style={TD({ color: '#fff', fontWeight: 700, fontSize: 11 })}>{t.realizado}</td>
-                        <td key={`${t.id}-s`} style={TD({ fontWeight: 700, fontSize: 11, color: saldo < 0 ? '#fca5a5' : '#86efac' })}>
+                        <td key={`${t.id}-m`}  style={TD({ color: '#fff', fontWeight: 700, fontSize: 11 })}>{t.meta}</td>
+                        <td key={`${t.id}-r`}  style={TD({ color: '#fff', fontWeight: 700, fontSize: 11 })}>{t.realizado}</td>
+                        <td key={`${t.id}-s`}  style={TD({ fontWeight: 700, fontSize: 11, color: saldo < 0 ? '#fca5a5' : '#86efac' })}>
                           {saldo > 0 ? `+${saldo}` : saldo}
                         </td>
+                        <td key={`${t.id}-sv`} style={TD()} />
                       </>
                     );
                   })}
@@ -417,7 +506,7 @@ export default function Producao() {
   );
 }
 
-// ─── Estilos constantes (fora do render) ─────────────────────────────────────
+// ─── Estilos ─────────────────────────────────────────────────────────────────
 
 const inp: React.CSSProperties = {
   padding: '3px 6px', borderRadius: 3, border: '1px solid #334155',
@@ -428,6 +517,20 @@ const cellInput: React.CSSProperties = {
   width: 44, padding: '1px 2px', textAlign: 'center', fontSize: 11,
   border: '1px solid #cbd5e1', borderRadius: 2, outline: 'none', background: '#f0f9ff',
 };
+
+function saveBtnStyle(saving: boolean, saved: boolean, disabled: boolean): React.CSSProperties {
+  let bg = '#2563eb';
+  if (saved)    bg = '#16a34a';
+  if (disabled) bg = '#cbd5e1';
+  if (saving)   bg = '#93c5fd';
+  return {
+    padding: '2px 7px', borderRadius: 3, border: 'none',
+    background: bg, color: disabled ? '#94a3b8' : '#fff',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    fontWeight: 600, fontSize: 10, whiteSpace: 'nowrap',
+    minWidth: 44, transition: 'background 0.2s',
+  };
+}
 
 function btnStyle(bg: string): React.CSSProperties {
   return { padding: '3px 10px', borderRadius: 3, border: 'none', background: bg, color: '#fff', cursor: 'pointer', fontWeight: 600, fontSize: 11 };

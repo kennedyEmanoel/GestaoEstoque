@@ -9,7 +9,7 @@ const sqlite = new Database(dbPath);
 
 console.log(dbPath);
 
-sqlite.pragma('journal_mode = WAL');
+//sqlite.pragma('journal_mode = WAL');
 sqlite.pragma('foreign_keys = ON');
 
 sqlite.exec(`
@@ -98,23 +98,29 @@ try {
 } catch { /* tabela já existe com schema correto */ }
 
 // Se a tabela existia com o schema antigo (continha coluna turno), migra os dados
-try {
-  sqlite.exec(`
-    CREATE TABLE IF NOT EXISTS producao_ficha_diaria_new (
-      id               INTEGER PRIMARY KEY AUTOINCREMENT,
-      data             TEXT    NOT NULL,
-      produto          TEXT    NOT NULL,
-      etapa            TEXT    NOT NULL,
-      meta_hora_padrao INTEGER NOT NULL DEFAULT 40,
-      criado_em        INTEGER NOT NULL,
-      UNIQUE(data, etapa, produto)
-    );
-    INSERT OR IGNORE INTO producao_ficha_diaria_new (id, data, produto, etapa, meta_hora_padrao, criado_em)
-      SELECT id, data, produto, etapa, meta_hora_padrao, criado_em FROM producao_ficha_diaria;
-    DROP TABLE producao_ficha_diaria;
-    ALTER TABLE producao_ficha_diaria_new RENAME TO producao_ficha_diaria;
-  `);
-} catch { /* migração não necessária ou já feita */ }
+const fichaColumns = sqlite.pragma('table_info(producao_ficha_diaria)') as { name: string }[];
+const hasTurno = fichaColumns.some(col => col.name === 'turno');
+if (hasTurno) {
+  sqlite.transaction(() => {
+    sqlite.exec(`
+      CREATE TABLE producao_ficha_diaria_new (
+        id               INTEGER PRIMARY KEY AUTOINCREMENT,
+        data             TEXT    NOT NULL,
+        produto          TEXT    NOT NULL,
+        etapa            TEXT    NOT NULL,
+        meta_hora_padrao INTEGER NOT NULL DEFAULT 40,
+        criado_em        INTEGER NOT NULL,
+        UNIQUE(data, etapa, produto)
+      );
+    `);
+    sqlite.exec(`
+      INSERT OR IGNORE INTO producao_ficha_diaria_new (id, data, produto, etapa, meta_hora_padrao, criado_em)
+        SELECT id, data, produto, etapa, meta_hora_padrao, criado_em FROM producao_ficha_diaria;
+    `);
+    sqlite.exec(`DROP TABLE producao_ficha_diaria;`);
+    sqlite.exec(`ALTER TABLE producao_ficha_diaria_new RENAME TO producao_ficha_diaria;`);
+  })();
+}
 
 sqlite.exec(`
   CREATE TABLE IF NOT EXISTS producao_operador_diario (
@@ -142,3 +148,4 @@ try {
 } catch { /* índices já existem */ }
 
 export const db = drizzle(sqlite, { schema });
+export { sqlite };

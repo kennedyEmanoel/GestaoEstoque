@@ -1,6 +1,4 @@
-import Database from 'better-sqlite3';
-import { app } from 'electron';
-import path from 'path';
+import { sqlite } from '../models/db';
 import type {
   FichaDiariaCompleta,
   OperadorDiario,
@@ -11,10 +9,6 @@ import type {
   UpsertRegistroInput,
   GetFichaInput,
 } from '../../shared/types';
-
-// Reutiliza a mesma instância de banco já inicializada em db.ts via singleton de caminho
-const dbPath = path.join(app.getPath('userData'), 'bd_estoque.sqlite');
-const sqlite = new Database(dbPath);
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -153,6 +147,10 @@ export function removeOperador(input: RemoveOperadorInput): void {
 }
 
 export function upsertRegistro(input: UpsertRegistroInput): RegistroHorario {
+  if (!input.meta || input.meta <= 0) {
+    throw new Error('Meta deve ser maior que zero para salvar o registro.');
+  }
+
   sqlite
     .prepare(`
       INSERT INTO producao_registro_horario (operador_diario_id, horario_bloco, meta, realizado)
