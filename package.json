@@ -1,6 +1,6 @@
 {
-  "name": "GAM",
-  "productName": "Gestão e Analise de Manufatura",
+  "name": "Gestão-de-Manufatura",
+  "productName": "Gestão de Manufatura",
   "version": "1.0.0",
   "description": "My Electron application description",
   "main": ".vite/build/main.js",

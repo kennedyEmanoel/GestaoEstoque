@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import path from 'node:path';
 import started from 'electron-squirrel-startup';
-import updateElectronApp from 'update-electron-app';
+import { updateElectronApp } from 'update-electron-app';
 import { setupBoxControllers } from './main/controllers/boxController';
 import { setupDashboardControllers } from './main/controllers/dashboardController';
 import { setupProducaoControllers } from './main/controllers/producaoController';

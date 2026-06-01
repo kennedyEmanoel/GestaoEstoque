@@ -5,10 +5,14 @@ export default defineConfig({
     rollupOptions: {
       external: [
         'better-sqlite3',
-        'drizzle-orm',
-        /^drizzle-orm\/.*/,
         /.*\/worker\/dbWorker(\.js)?$/,
       ],
     },
+    commonjsOptions: {
+      transformMixedEsModules: true,
+    },
+  },
+  ssr: {
+    noExternal: [/^drizzle-orm/],
   },
 });
