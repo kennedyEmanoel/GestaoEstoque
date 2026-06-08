@@ -11,9 +11,9 @@ import type {
 const ETAPAS: EtapaProducao[] = ['Montagem', 'Soldagem', 'Revisao', 'Firmware', 'IMEI'];
 
 const BLOCOS_HORARIOS = [
-  '07:12 - 08:12',
-  '08:12 - 09:12',
-  '09:15 - 10:12',
+  '07:12 - 08:00',
+  '08:00 - 09:00',
+  '09:15 - 10:00',
   '10:00 - 11:00',
   '11:00 - 12:00',
   '13:00 - 14:00',

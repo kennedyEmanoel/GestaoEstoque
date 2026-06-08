@@ -157,8 +157,9 @@ export function getDashboardProducao(filtros: DashboardProducaoFiltros): Dashboa
 
 // ─── Dashboard separado por etapa ────────────────────────────────────────────
 
-export function getDashboardPorEtapas(data: string, produto?: string): DashboardPorEtapasData {
+export function getDashboardPorEtapas(data: string, produto?: string, horarioBloco?: string): DashboardPorEtapasData {
   const produtoFiltro = produto?.trim() || null;
+  const blocoFiltro   = horarioBloco?.trim() || null;
 
   // Busca todas as etapas que têm dados no dia (e produto, se filtrado)
   const fichas = sqlite.prepare<any[], any>(`
@@ -170,18 +171,31 @@ export function getDashboardPorEtapas(data: string, produto?: string): Dashboard
   `).all(...(produtoFiltro ? [data, produtoFiltro] : [data])) as { id: number; etapa: string; produto: string }[];
 
   const etapas: EtapaResumo[] = fichas.map(ficha => {
-    // Operadores desta etapa
-    const porOperador = sqlite.prepare<[number], any>(`
-      SELECT
-        o.operador_nome  AS operadorNome,
-        SUM(r.realizado) AS totalRealizado,
-        SUM(r.meta)      AS totalMeta
-      FROM producao_operador_diario o
-      LEFT JOIN producao_registro_horario r ON r.operador_diario_id = o.id
-      WHERE o.ficha_id = ?
-      GROUP BY o.operador_nome
-      ORDER BY totalRealizado DESC
-    `).all(ficha.id) as DadosPorOperador[];
+    // Operadores desta etapa — filtrado por bloco se fornecido
+    const porOperador = blocoFiltro
+      ? sqlite.prepare<[number, string], any>(`
+          SELECT
+            o.operador_nome  AS operadorNome,
+            COALESCE(SUM(r.realizado), 0) AS totalRealizado,
+            COALESCE(SUM(r.meta),      0) AS totalMeta
+          FROM producao_operador_diario o
+          LEFT JOIN producao_registro_horario r
+            ON r.operador_diario_id = o.id AND r.horario_bloco = ?
+          WHERE o.ficha_id = ?
+          GROUP BY o.operador_nome
+          ORDER BY o.ordem ASC
+        `).all(blocoFiltro, ficha.id) as DadosPorOperador[]
+      : sqlite.prepare<[number], any>(`
+          SELECT
+            o.operador_nome  AS operadorNome,
+            COALESCE(SUM(r.realizado), 0) AS totalRealizado,
+            COALESCE(SUM(r.meta),      0) AS totalMeta
+          FROM producao_operador_diario o
+          LEFT JOIN producao_registro_horario r ON r.operador_diario_id = o.id
+          WHERE o.ficha_id = ?
+          GROUP BY o.operador_nome
+          ORDER BY o.ordem ASC
+        `).all(ficha.id) as DadosPorOperador[];
 
     // Produção por hora desta etapa
     const porHora = sqlite.prepare<[number], any>(`

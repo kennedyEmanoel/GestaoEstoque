@@ -54,8 +54,8 @@ export const setupProducaoControllers = () => {
     catch (e: any) { return { success: false, error: e.message }; }
   });
 
-  ipcMain.handle('producao:get-dashboard-etapas', async (_event, data: string, produto?: string) => {
-    try { return { success: true, data: getDashboardPorEtapas(data, produto) }; }
+  ipcMain.handle('producao:get-dashboard-etapas', async (_event, data: string, produto?: string, horarioBloco?: string) => {
+    try { return { success: true, data: getDashboardPorEtapas(data, produto, horarioBloco) }; }
     catch (e: any) { return { success: false, error: e.message }; }
   });
 

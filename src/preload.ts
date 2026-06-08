@@ -38,8 +38,8 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('producao:update-meta-padrao', fichaId, meta),
   getDashboardProducao: (filtros: any) =>
     ipcRenderer.invoke('producao:get-dashboard', filtros),
-  getDashboardPorEtapas: (data: string, produto?: string) =>
-    ipcRenderer.invoke('producao:get-dashboard-etapas', data, produto),
+  getDashboardPorEtapas: (data: string, produto?: string, horarioBloco?: string) =>
+    ipcRenderer.invoke('producao:get-dashboard-etapas', data, produto, horarioBloco),
   openProductionWindow: () =>
     ipcRenderer.send('open-production-window'),
   closeProductionWindow: () =>
