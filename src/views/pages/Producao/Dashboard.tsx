@@ -49,7 +49,7 @@ function faixaAtual(): string {
   return todasAsFaixas(sexta)[0]; // fora do expediente → primeira faixa
 }
 
-const CARROSSEL_INTERVALO_MS = 2 * 60 * 1000; // 2 minutos
+const CARROSSEL_INTERVALO_MS = 1 * 60 * 1000; // 2 minutos
 
 // ─── Paleta ───────────────────────────────────────────────────────────────────
 
