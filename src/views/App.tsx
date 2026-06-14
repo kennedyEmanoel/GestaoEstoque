@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Stock from './pages/Stock';
@@ -13,6 +13,13 @@ const standaloneParam = new URLSearchParams(window.location.search).get('standal
 const App = () => {
   const [abaAtiva, setAbaAtiva] = useState('dashboard');
   const [sidebarAberta, setSidebarAberta] = useState(false);
+  const [serverUrl, setServerUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    (window.api as any).getServerUrl().then((url: string | null) => {
+      if (url) setServerUrl(url);
+    });
+  }, []);
 
   if (standaloneParam === 'producao-dashboard') {
     return (
@@ -55,6 +62,7 @@ const App = () => {
           abaAtiva={abaAtiva}
           sidebarAberta={sidebarAberta}
           setSidebarAberta={setSidebarAberta}
+          serverUrl={serverUrl}
         />
 
         <div style={{ flex: 1, minHeight: 0, width: '100%' }}>

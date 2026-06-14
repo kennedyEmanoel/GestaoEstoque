@@ -4,6 +4,7 @@ interface HeaderProps {
   abaAtiva: string;
   sidebarAberta: boolean;
   setSidebarAberta: (aberta: boolean) => void;
+  serverUrl?: string | null;
 }
 
 const PAGE_TITLES: Record<string, { title: string; description: string }> = {
@@ -13,7 +14,7 @@ const PAGE_TITLES: Record<string, { title: string; description: string }> = {
   configuracoes: { title: 'Configurações',      description: 'Parâmetros e preferências do sistema' },
 };
 
-const Header = ({ abaAtiva, sidebarAberta, setSidebarAberta }: HeaderProps) => {
+const Header = ({ abaAtiva, sidebarAberta, setSidebarAberta, serverUrl }: HeaderProps) => {
   const page = PAGE_TITLES[abaAtiva] ?? { title: 'Sistema', description: '' };
 
   return (
@@ -40,6 +41,16 @@ const Header = ({ abaAtiva, sidebarAberta, setSidebarAberta }: HeaderProps) => {
           )}
         </div>
       </div>
+
+      {/* Direita — URL do servidor web */}
+      {serverUrl && (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.3 }}>
+          <span style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', letterSpacing: 1 }}>ACESSO PELA REDE</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: '#2563eb', fontFamily: 'monospace', letterSpacing: 0.3 }}>
+            {serverUrl}
+          </span>
+        </div>
+      )}
 
     </header>
   );

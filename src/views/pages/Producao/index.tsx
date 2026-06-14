@@ -362,6 +362,22 @@ export default function Producao() {
             Atualizar Painel
           </button>
 
+          {/* Botão Abrir Painel */}
+          <button
+            onClick={() => window.api.openProductionWindow()}
+            style={{ padding: '4px 14px', borderRadius: 3, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}
+          >
+            Abrir Painel
+          </button>
+
+          {/* Botão Fechar Painel */}
+          <button
+            onClick={() => window.api.closeProductionWindow()}
+            style={{ padding: '4px 14px', borderRadius: 3, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}
+          >
+            Fechar Painel
+          </button>
+
         </div>
       </div>
 

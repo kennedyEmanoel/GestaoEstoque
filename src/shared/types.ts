@@ -287,6 +287,7 @@ declare global {
       sendDashboardCommand:  (payload: DashboardCommand) => void;
       onDashboardCommand:    (cb: (payload: DashboardCommand) => void) => void;
       offDashboardCommand:   () => void;
+      getServerUrl:          () => Promise<string | null>;
     };
   }
 }
