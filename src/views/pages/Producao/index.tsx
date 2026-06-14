@@ -8,7 +8,11 @@ import type {
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
-const ETAPAS: EtapaProducao[] = ['Montagem', 'Soldagem', 'Revisao', 'Firmware', 'IMEI'];
+const ETAPAS: EtapaProducao[] = ['Montagem', 'Soldagem', 'Revisão', 'Firmware', 'IMEI'];
+
+function labelEtapa(e: EtapaProducao): string {
+  return e === 'Revisão' ? 'Revisão' : e;
+}
 
 const BLOCOS_HORARIOS = [
   '07:12 - 08:00',
@@ -72,12 +76,46 @@ function corSaldo(v: number) {
 
 // ─── Componente ──────────────────────────────────────────────────────────────
 
+// ─── Controles do painel de produção ─────────────────────────────────────────
+
+const BLOCOS_DASHBOARD = [
+  '07:12 - 08:00', '08:00 - 09:00', '09:15 - 10:00',
+  '10:00 - 11:00', '11:00 - 12:00', '13:00 - 14:00',
+  '14:00 - 15:00', '15:00 - 16:00', '16:00 - 17:12',
+];
+
+function faixaAtualDashboard(): string {
+  const agora   = new Date();
+  const minutos = agora.getHours() * 60 + agora.getMinutes();
+  const blocos = [
+    { ini: 7*60+12, fim: 8*60    },
+    { ini: 8*60,    fim: 9*60    },
+    { ini: 9*60+15, fim: 10*60   },
+    { ini: 10*60,   fim: 11*60   },
+    { ini: 11*60,   fim: 12*60   },
+    { ini: 13*60,   fim: 14*60   },
+    { ini: 14*60,   fim: 15*60   },
+    { ini: 15*60,   fim: 16*60   },
+    { ini: 16*60,   fim: 17*60+12},
+  ];
+  for (let i = 0; i < blocos.length; i++) {
+    if (minutos >= blocos[i].ini && minutos < blocos[i].fim) return BLOCOS_DASHBOARD[i];
+  }
+  return BLOCOS_DASHBOARD[0];
+}
+
 export default function Producao() {
   const today = new Date().toISOString().slice(0, 10);
 
   const [filtro, setFiltro] = useState<FiltroState>({
     data: today, etapa: 'Soldagem', produto: '4G SIMCOM', metaHoraPadrao: 40,
   });
+
+  // ── Estado dos controles do Dashboard ──────────────────────────────────────
+  const [dashData, setDashData]     = useState(today);
+  const [dashProduto, setDashProduto] = useState('');
+  const [dashFaixa, setDashFaixa]   = useState<string>(faixaAtualDashboard());
+
 
   const [ficha, setFicha]       = useState<FichaDiariaCompleta | null>(null);
   const [loading, setLoading]   = useState(false);
@@ -97,6 +135,12 @@ export default function Producao() {
   const draftRef = useRef<Draft>({});
   fichaRef.current = ficha;
   draftRef.current = draft;
+
+  // ── Comandos para o Dashboard ───────────────────────────────────────────────
+
+  const enviarRefresh = () => {
+    (window.api as any).sendDashboardCommand({ type: 'refresh', data: dashData, produto: dashProduto, faixa: dashFaixa });
+  };
 
   // ── Carregar / criar ────────────────────────────────────────────────────────
 
@@ -280,6 +324,47 @@ export default function Producao() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f1f5f9', fontFamily: 'system-ui,sans-serif', overflow: 'hidden' }}>
 
+      {/* ── Painel de controle do Dashboard ── */}
+      <div style={{
+        background: '#0f2542', padding: '10px 14px', flexShrink: 0,
+        borderBottom: '2px solid #1e3a5f',
+      }}>
+        <div style={{ fontSize: 9, fontWeight: 700, color: '#475569', letterSpacing: 1.5, marginBottom: 8 }}>
+          CONTROLE DO PAINEL DE PRODUÇÃO
+        </div>
+        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
+
+          {/* Data */}
+          <div>
+            <div style={{ color: '#64748b', fontSize: 9, fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>DATA</div>
+            <input type="date" value={dashData} onChange={e => setDashData(e.target.value)} style={inp} />
+          </div>
+
+          {/* Produto */}
+          <div>
+            <div style={{ color: '#64748b', fontSize: 9, fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>PRODUTO</div>
+            <input value={dashProduto} onChange={e => setDashProduto(e.target.value)} placeholder="Todos" style={{ ...inp, width: 110 }} />
+          </div>
+
+          {/* Faixa de horário */}
+          <div>
+            <div style={{ color: '#64748b', fontSize: 9, fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>FAIXA DE HORÁRIO</div>
+            <select value={dashFaixa} onChange={e => setDashFaixa(e.target.value)} style={inp}>
+              {BLOCOS_DASHBOARD.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </div>
+
+          {/* Botão Atualizar Painel */}
+          <button
+            onClick={enviarRefresh}
+            style={{ padding: '4px 14px', borderRadius: 3, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}
+          >
+            Atualizar Painel
+          </button>
+
+        </div>
+      </div>
+
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#1e3a5f', flexShrink: 0, flexWrap: 'wrap' }}>
 
@@ -288,7 +373,7 @@ export default function Producao() {
           { label: 'PRODUTO', node: <input value={filtro.produto} onChange={e => setFiltro(f => ({ ...f, produto: e.target.value }))} placeholder="Produto" style={{ ...inp, width: 110 }} /> },
           { label: 'ETAPA',   node: (
             <select value={filtro.etapa} onChange={e => setFiltro(f => ({ ...f, etapa: e.target.value as EtapaProducao }))} style={inp}>
-              {ETAPAS.map(e => <option key={e} value={e}>{e}</option>)}
+              {ETAPAS.map(e => <option key={e} value={e}>{labelEtapa(e)}</option>)}
             </select>
           )},
           { label: 'META/H',  node: <input type="number" min={0} value={filtro.metaHoraPadrao} onChange={e => setFiltro(f => ({ ...f, metaHoraPadrao: parseInt(e.target.value) || 0 }))} style={{ ...inp, width: 52 }} /> },
@@ -349,7 +434,7 @@ export default function Producao() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <span style={{ fontWeight: 700, fontSize: 12, letterSpacing: 0.8 }}>
-              CONTROLE DE PRODUÇÃO — {ficha.etapa.toUpperCase()} | {ficha.produto.toUpperCase()}
+              CONTROLE DE PRODUÇÃO — {labelEtapa(ficha.etapa).toUpperCase()} | {ficha.produto.toUpperCase()}
             </span>
             <span style={{ fontSize: 10, opacity: 0.6 }}>{ficha.data}</span>
           </div>

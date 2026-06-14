@@ -83,6 +83,13 @@ app.on('ready', () => {
     win?.close();
   });
 
+  // Retransmite comandos do Controle de Produção para a janela do Painel
+  ipcMain.on('dashboard-command', (_event, payload: unknown) => {
+    if (productionWindow && !productionWindow.isDestroyed()) {
+      productionWindow.webContents.send('dashboard-command', payload);
+    }
+  });
+
   createWindow();
 });
 

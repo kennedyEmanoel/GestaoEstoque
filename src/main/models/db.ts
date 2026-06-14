@@ -147,5 +147,10 @@ try {
   sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_registro_op      ON producao_registro_horario(operador_diario_id)`);
 } catch { /* índices já existem */ }
 
+// Migration: corrige grafia "Revisao" → "Revisão" em fichas existentes
+try {
+  sqlite.exec(`UPDATE producao_ficha_diaria SET etapa = 'Revisão' WHERE etapa = 'Revisao'`);
+} catch { /* ignora se falhar */ }
+
 export const db = drizzle(sqlite, { schema });
 export { sqlite };

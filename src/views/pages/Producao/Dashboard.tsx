@@ -6,7 +6,7 @@ import {
   Title, Tooltip, Legend,
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import type { DashboardPorEtapasData, EtapaResumo, DadosPorOperador } from '../../../shared/types';
+import type { DashboardPorEtapasData, EtapaResumo, DadosPorOperador, DashboardCommand } from '../../../shared/types';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
@@ -36,31 +36,32 @@ function todasAsFaixas(sexta: boolean): string[] {
 }
 
 function faixaAtual(): string {
-  const agora  = new Date();
+  const agora   = new Date();
   const minutos = agora.getHours() * 60 + agora.getMinutes();
-  const sexta  = agora.getDay() === 5;
+  const sexta   = agora.getDay() === 5;
 
   for (const f of FAIXAS_BASE) {
-    const ini = f.inicio[0] * 60 + f.inicio[1];
-    const fim = ('fimSexta' in f && sexta ? f.fimSexta : f.fim) as [number, number];
+    const ini    = f.inicio[0] * 60 + f.inicio[1];
+    const fim    = ('fimSexta' in f && sexta ? f.fimSexta : f.fim) as [number, number];
     const fimMin = fim[0] * 60 + fim[1];
     if (minutos >= ini && minutos < fimMin) return faixaLabel(f, sexta);
   }
-  return todasAsFaixas(sexta)[0]; // fora do expediente → primeira faixa
+  return todasAsFaixas(sexta)[0];
 }
 
-const CARROSSEL_INTERVALO_MS = 1 * 60 * 1000; // 2 minutos
+const CARROSSEL_INTERVALO_MS = 1 * 60 * 1000;
 
 // ─── Paleta ───────────────────────────────────────────────────────────────────
 
 const COR_ETAPA: Record<string, { bg: string; text: string; bar: string }> = {
   Montagem: { bg: '#1d4ed8', text: '#fff', bar: 'rgba(59,130,246,0.85)'  },
   Soldagem: { bg: '#15803d', text: '#fff', bar: 'rgba(34,197,94,0.85)'   },
+  Revisão:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)'  },
   Revisao:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)'  },
   Firmware: { bg: '#b45309', text: '#fff', bar: 'rgba(245,158,11,0.85)'  },
   IMEI:     { bg: '#0e7490', text: '#fff', bar: 'rgba(6,182,212,0.85)'   },
 };
-const COR_DEFAULT = { bg: '#374151', text: '#fff', bar: 'rgba(107,114,128,0.85)' };
+const COR_DEFAULT = { bg: '#483751', text: '#fff', bar: 'rgba(107,114,128,0.85)' };
 
 function corEtapa(etapa: string) {
   return COR_ETAPA[etapa] ?? COR_DEFAULT;
@@ -133,24 +134,22 @@ function EtapaHeader({ etapa, produto, totalRealizado, pctAtingimento }: EtapaRe
 function CardOperador({ op }: { op: DadosPorOperador }) {
   const pct   = op.totalMeta > 0 ? (op.totalRealizado / op.totalMeta) * 100 : null;
   const saldo = op.totalRealizado - op.totalMeta;
-  const bateu = pct !== null && pct >= 100;
-
+  const bateu   = pct !== null && pct >= 100;
   const parcial = pct !== null && pct >= 80 && pct < 100;
 
   const bg       = bateu  ? '#14532d' : parcial ? '#78350f' : '#7f1d1d';
   const border   = bateu  ? '#22c55e' : parcial ? '#f59e0b' : '#dc2626';
   const numColor = bateu  ? '#86efac' : parcial ? '#fde68a' : '#fca5a5';
   const icon     = bateu  ? '✓'       : parcial ? '~'       : '✗';
-  const barPct = Math.min(pct ?? 0, 120);
+  const barPct   = Math.min(pct ?? 0, 120);
 
   return (
     <div style={{
       background: bg, borderRadius: 12, border: `3px solid ${border}`,
-      padding: '14px 16px', minWidth: 160, flex: '1 1 160px',
+      padding: '14px 16px',
       display: 'flex', flexDirection: 'column', gap: 10,
       boxShadow: `0 0 16px ${border}55`,
     }}>
-      {/* Nome + ícone */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: 0.3 }}>
           {op.operadorNome}
@@ -158,7 +157,6 @@ function CardOperador({ op }: { op: DadosPorOperador }) {
         <div style={{ fontSize: 24, lineHeight: 1, color: border }}>{icon}</div>
       </div>
 
-      {/* Números */}
       <div style={{ display: 'flex', gap: 10 }}>
         <div>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: 0.8 }}>REAL.</div>
@@ -176,7 +174,6 @@ function CardOperador({ op }: { op: DadosPorOperador }) {
         </div>
       </div>
 
-      {/* Barra de eficiência */}
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
           <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>EFICIÊNCIA</div>
@@ -301,28 +298,24 @@ function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
 // ─── Componente principal ─────────────────────────────────────────────────────
 
 export default function ProducaoDashboard({ standalone = false }: { standalone?: boolean }) {
-  const today  = new Date().toISOString().slice(0, 10);
-  const sexta  = new Date().getDay() === 5;
-  const faixas = todasAsFaixas(sexta);
+  const today = new Date().toISOString().slice(0, 10);
 
-  const [data, setData]                         = useState(today);
-  const [produtoInput, setProduto]              = useState('');
+  const [data]                    = useState(today);
+  const [produtoInput]            = useState('');
   const [faixaSelecionada, setFaixaSelecionada] = useState<string>(faixaAtual());
   const [dados, setDados]                       = useState<DashboardPorEtapasData | null>(null);
-  const [dadosDia, setDadosDia]                 = useState<DashboardPorEtapasData | null>(null); // totais sem filtro de bloco
+  const [dadosDia, setDadosDia]                 = useState<DashboardPorEtapasData | null>(null);
   const [loading, setLoading]                   = useState(false);
   const [erro, setErro]                         = useState<string | null>(null);
   const [etapaSelecionada, setEtapaSelecionada] = useState<EtapaResumo | null>(null);
   const [isFullscreen, setIsFullscreen]         = useState(false);
   const [rotacaoAtiva, setRotacaoAtiva]         = useState(false);
 
-  const rootRef    = useRef<HTMLDivElement>(null);
-  const timerRef   = useRef<ReturnType<typeof setInterval> | null>(null);
-  const etapasRef  = useRef<EtapaResumo[]>([]);
-  const indiceRef  = useRef(0);
+  const rootRef   = useRef<HTMLDivElement>(null);
+  const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const etapasRef = useRef<EtapaResumo[]>([]);
+  const indiceRef = useRef(0);
 
-  // etapasRef é atualizado tanto pelo useEffect quanto diretamente no carregar
-  // para evitar race condition entre setState assíncrono e setInterval
   useEffect(() => { etapasRef.current = dados?.etapas ?? []; }, [dados]);
 
   // ── Carrossel ────────────────────────────────────────────────────────────────
@@ -375,7 +368,6 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
       const api = window.api as typeof window.api & {
         getDashboardPorEtapas: (d: string, p?: string, h?: string) => Promise<any>;
       };
-      // Busca filtrada por bloco (para o painel de detalhe e carrossel)
       const [resFaixa, resDia] = await Promise.all([
         api.getDashboardPorEtapas(d, prod || undefined, faixa),
         api.getDashboardPorEtapas(d, prod || undefined, undefined),
@@ -397,6 +389,18 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
 
   useEffect(() => { carregar(today, '', faixaAtual()); }, []);
 
+  // ── Listener de comandos do Controle de Produção ─────────────────────────────
+  useEffect(() => {
+    const api = window.api as typeof window.api;
+    api.onDashboardCommand((cmd: DashboardCommand) => {
+      if (cmd.type === 'refresh') {
+        setFaixaSelecionada(cmd.faixa);
+        carregar(cmd.data, cmd.produto, cmd.faixa);
+      }
+    });
+    return () => { api.offDashboardCommand(); };
+  }, [carregar]);
+
   const selecionarManual = (etapa: EtapaResumo) => {
     pararCarrossel();
     setEtapaSelecionada(etapa);
@@ -414,88 +418,32 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
       overflow: 'hidden',
     }}>
 
-      {/* ── Barra de controles ── */}
-      <div style={{
+      {/* ── Barra de status (só leitura) ── */}
+      {/* <div style={{
         display: 'flex', alignItems: 'center', gap: 14,
         padding: '8px 16px', background: '#1e3a5f', flexWrap: 'wrap', flexShrink: 0,
       }}>
-
         <div style={{ color: '#f1f5f9', fontWeight: 800, fontSize: 16, letterSpacing: 1 }}>
           PAINEL DE PRODUÇÃO
         </div>
 
         <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.15)' }} />
 
-        {/* Badge da faixa de horário */}
         <BadgeFaixa faixa={faixaSelecionada} />
 
         <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.15)' }} />
 
-        <div>
-          <div style={{ color: '#93c5fd', fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>DATA</div>
-          <input type="date" value={data} onChange={e => setData(e.target.value)}
-            style={{ padding: '3px 7px', borderRadius: 4, border: '1px solid #334155', background: '#0f2542', color: '#f1f5f9', fontSize: 12, outline: 'none' }}
-          />
+        <div style={{ color: '#93c5fd', fontSize: 12, fontWeight: 600 }}>
+          {data} {produtoInput ? `· ${produtoInput}` : '· Todos os produtos'}
         </div>
 
-        <div>
-          <div style={{ color: '#93c5fd', fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>PRODUTO</div>
-          <input value={produtoInput} onChange={e => setProduto(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && carregar(data, produtoInput, faixaSelecionada)}
-            placeholder="Todos"
-            style={{ padding: '3px 7px', borderRadius: 4, border: '1px solid #334155', background: '#0f2542', color: '#f1f5f9', fontSize: 12, outline: 'none', width: 110 }}
-          />
-        </div>
+        {rotacaoAtiva && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#fb923c', fontSize: 11, fontWeight: 700 }}>
+            <span style={{ animation: 'spin 2s linear infinite', display: 'inline-block' }}>⟳</span>
+            CARROSSEL ATIVO
+          </div>
+        )}
 
-        <div>
-          <div style={{ color: '#93c5fd', fontSize: 10, fontWeight: 700, letterSpacing: 1 }}>FAIXA DE HORÁRIO</div>
-          <select
-            value={faixaSelecionada}
-            onChange={e => setFaixaSelecionada(e.target.value)}
-            style={{ padding: '3px 7px', borderRadius: 4, border: '1px solid #334155', background: '#0f2542', color: '#f1f5f9', fontSize: 12, outline: 'none' }}
-          >
-            {faixas.map(f => <option key={f} value={f}>{f}</option>)}
-          </select>
-        </div>
-
-        <div style={{ display: 'flex', gap: 7, alignItems: 'flex-end' }}>
-          <button
-            onClick={() => carregar(data, produtoInput, faixaSelecionada)}
-            disabled={loading}
-            style={{ padding: '5px 18px', borderRadius: 4, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}
-          >
-            {loading ? 'Carregando...' : 'Atualizar'}
-          </button>
-
-          {rotacaoAtiva && (
-            <button onClick={pararCarrossel}
-              style={{ padding: '5px 12px', borderRadius: 4, border: '1px solid #f97316', background: 'transparent', color: '#fb923c', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>
-              ⏸ Pausar
-            </button>
-          )}
-
-          {!rotacaoAtiva && dados && dados.etapas.length > 0 && (
-            <button onClick={() => iniciarCarrossel(dados.etapas)}
-              style={{ padding: '5px 12px', borderRadius: 4, border: '1px solid #22c55e', background: 'transparent', color: '#4ade80', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>
-              ▶ Carrossel
-            </button>
-          )}
-
-          <button onClick={toggleFullscreen}
-            title={isFullscreen ? 'Sair (F11)' : 'Tela cheia (F11)'}
-            style={{ padding: '5px 10px', borderRadius: 4, border: '1px solid #334155', background: '#0f2542', color: '#94a3b8', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center' }}>
-            ⛶<span style={{ fontSize: 10, marginLeft: 4, color: '#64748b' }}>F11</span>
-          </button>
-
-          {standalone && (
-            <button onClick={() => window.api.closeProductionWindow()}
-              style={{ padding: '5px 12px', borderRadius: 4, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>
-              Fechar
-            </button>
-          )}
-        </div>
-
-        {/* Pills de totais */}
         {dados && (
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 22, alignItems: 'center' }}>
             <TotalPill label="TOTAL REALIZADO" value={totalGeral?.realizado ?? 0} color="#86efac" />
@@ -506,9 +454,20 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
               color={pctGeral !== null ? pctGeral >= 100 ? '#86efac' : '#fca5a5' : '#94a3b8'}
               isString
             />
+            <button onClick={toggleFullscreen}
+              title={isFullscreen ? 'Sair (F11)' : 'Tela cheia (F11)'}
+              style={{ padding: '5px 10px', borderRadius: 4, border: '1px solid #334155', background: '#0f2542', color: '#94a3b8', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center' }}>
+              ⛶<span style={{ fontSize: 10, marginLeft: 4, color: '#64748b' }}>F11</span>
+            </button>
+            {standalone && (
+              <button onClick={() => window.api.closeProductionWindow()}
+                style={{ padding: '5px 12px', borderRadius: 4, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>
+                Fechar
+              </button>
+            )}
           </div>
         )}
-      </div>
+      </div> */}
 
       {/* Erro */}
       {erro && (
@@ -536,7 +495,6 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
 
           {dadosDia?.etapas.map(etapa => {
             const ativa = etapaSelecionada?.etapa === etapa.etapa;
-            // seleciona a etapa filtrada por bloco (dados), não a do dia inteiro
             const etapaBloco = dados?.etapas.find(e => e.etapa === etapa.etapa) ?? etapa;
             return (
               <div
@@ -573,7 +531,7 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
         {/* ── Painel de detalhe ── */}
         <div style={{ flex: 1, height: '100%', overflowY: 'auto', backgroundColor: '#f8fafc' }}>
           {!etapaSelecionada ? (
-            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: '#94a3b8' }}>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: '#94a3b8' }}>
               <div style={{ fontSize: 48 }}>←</div>
               <div style={{ fontSize: 18, fontWeight: 600 }}>Selecione uma etapa no menu lateral</div>
             </div>
@@ -583,45 +541,44 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
               {/* Cabeçalho: etapa + faixa em destaque */}
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                flexWrap: 'wrap', gap: 12,
+                flexWrap: 'wrap', gap: 12, flexShrink: 0,
                 background: corEtapa(etapaSelecionada.etapa).bg,
-                borderRadius: 12, padding: '16px 24px',
+                borderRadius: 12, padding: '12px 20px',
               }}>
                 <div>
-                  <div style={{ fontSize: 30, fontWeight: 900, color: '#fff', letterSpacing: 2, lineHeight: 1 }}>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', letterSpacing: 2, lineHeight: 1 }}>
                     {etapaSelecionada.etapa.toUpperCase()}
                   </div>
                   {etapaSelecionada.produto && (
-                    <div style={{ fontSize: 13, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>
                       {etapaSelecionada.produto}
                     </div>
                   )}
                 </div>
 
-                {/* Faixa de horário em DESTAQUE no header */}
                 <div style={{
                   background: 'rgba(0,0,0,0.25)', borderRadius: 10,
-                  padding: '10px 20px', textAlign: 'right',
+                  padding: '8px 18px', textAlign: 'right',
                   border: '2px solid rgba(255,255,255,0.3)',
                 }}>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, marginBottom: 2 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, marginBottom: 2 }}>
                     FAIXA DE HORÁRIO
                   </div>
-                  <div style={{ fontSize: 32, fontWeight: 900, color: '#fff', letterSpacing: 3, lineHeight: 1 }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', letterSpacing: 3, lineHeight: 1 }}>
                     {faixaSelecionada}
                   </div>
                 </div>
               </div>
 
               {/* Gráfico */}
-              <div style={{ background: '#fff', padding: 18, borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 10, letterSpacing: 0.5 }}>
+              <div style={{ background: '#fff', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', flexShrink: 0 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 8, letterSpacing: 0.5 }}>
                   REALIZADO × SALDO POR OPERADOR — {faixaSelecionada}
                 </div>
-                <div style={{ height: 240 }}>
+                <div style={{ height: 180 }}>
                   {etapaSelecionada.porOperador.some(o => o.totalRealizado > 0 || o.totalMeta > 0)
                     ? <BarOperadores operadores={etapaSelecionada.porOperador} corBarra={corEtapa(etapaSelecionada.etapa).bar} />
-                    : <Vazio height={240} />
+                    : <Vazio height={180} />
                   }
                 </div>
               </div>
@@ -631,7 +588,12 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
                 <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 10, letterSpacing: 0.5 }}>
                   DETALHE POR OPERADOR — {faixaSelecionada}
                 </div>
-                <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, 1fr)',
+                  gap: 14,
+                  alignContent: 'start',
+                }}>
                   {etapaSelecionada.porOperador.map(op => (
                     <CardOperador key={op.operadorNome} op={op} />
                   ))}
@@ -643,6 +605,21 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
         </div>
 
       </div>
+
+      <style>{`
+        @keyframes alertaEntrada {
+          from { transform: scale(1.04); opacity: 0; }
+          to   { transform: scale(1);    opacity: 1; }
+        }
+        @keyframes pulsar {
+          0%, 100% { transform: scale(1);    opacity: 1;   }
+          50%       { transform: scale(1.15); opacity: 0.7; }
+        }
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to   { transform: rotate(360deg); }
+        }
+      `}</style>
     </div>
   );
 }

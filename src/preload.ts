@@ -44,4 +44,12 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.send('open-production-window'),
   closeProductionWindow: () =>
     ipcRenderer.send('close-production-window'),
+  sendDashboardCommand: (payload: unknown) =>
+    ipcRenderer.send('dashboard-command', payload),
+  onDashboardCommand: (cb: (payload: unknown) => void) => {
+    ipcRenderer.on('dashboard-command', (_e, p) => cb(p));
+  },
+  offDashboardCommand: () => {
+    ipcRenderer.removeAllListeners('dashboard-command');
+  },
 });

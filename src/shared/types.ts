@@ -135,7 +135,7 @@ export interface ApiResponse<T = unknown> {
 
 // ─── Módulo: Controle de Produção Hora a Hora ────────────────────────────────
 
-export type EtapaProducao = 'Montagem' | 'Soldagem' | 'Revisao' | 'Firmware' | 'IMEI';
+export type EtapaProducao = 'Montagem' | 'Soldagem' | 'Revisão' | 'Firmware' | 'IMEI';
 
 export interface FichaDiaria {
   id: number;
@@ -284,6 +284,15 @@ declare global {
       getDashboardPorEtapas: (data: string, produto?: string, horarioBloco?: string) => Promise<ApiResponse<DashboardPorEtapasData>>;
       openProductionWindow:  () => void;
       closeProductionWindow: () => void;
+      sendDashboardCommand:  (payload: DashboardCommand) => void;
+      onDashboardCommand:    (cb: (payload: DashboardCommand) => void) => void;
+      offDashboardCommand:   () => void;
     };
   }
 }
+
+// ─── Comandos do Controle de Produção → Dashboard ─────────────────────────────
+
+export type DashboardCommand =
+  | { type: 'refresh'; data: string; produto: string; faixa: string }
+  | { type: 'alert';   mensagem: string };
