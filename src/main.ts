@@ -35,6 +35,7 @@ if (started) {
 }
 
 let productionWindow: BrowserWindow | null = null;
+let productionWindowGeral: BrowserWindow | null = null;
 
 const createWindow = () => {
   Menu.setApplicationMenu(null);
@@ -88,6 +89,60 @@ const createProductionWindow = () => {
   });
 };
 
+const createProductionWindowGeral = () => {
+  if (productionWindowGeral && !productionWindowGeral.isDestroyed()) {
+    productionWindowGeral.focus();
+    return;
+  }
+
+  productionWindowGeral = new BrowserWindow({
+    width: 1920,
+    height: 1080,
+    fullscreen: true,
+    frame: false,
+    webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),
+    },
+  });
+
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    productionWindowGeral.loadURL(`${MAIN_WINDOW_VITE_DEV_SERVER_URL}?standalone=producao-dashboard-geral`);
+  } else {
+    productionWindowGeral.loadFile(
+      path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`),
+      { query: { standalone: 'producao-dashboard-geral' } },
+    );
+  }
+
+  productionWindowGeral.on('closed', () => {
+    productionWindowGeral = null;
+  });
+};
+
+function iniciarPollingComandoWeb(serverUrl: string) {
+  let ultimoTs: number | null = null;
+
+  const poll = () => {
+    fetch(`${serverUrl}/api/dashboard/comando`)
+      .then(r => r.json())
+      .then((res: any) => {
+        const cmd = res?.data;
+        if (!cmd || cmd.ts === ultimoTs) return;
+        ultimoTs = cmd.ts;
+        // Retransmite para ambas as janelas de dashboard
+        if (productionWindow && !productionWindow.isDestroyed()) {
+          productionWindow.webContents.send('dashboard-command', cmd);
+        }
+        if (productionWindowGeral && !productionWindowGeral.isDestroyed()) {
+          productionWindowGeral.webContents.send('dashboard-geral-command', cmd);
+        }
+      })
+      .catch(() => { /* servidor ainda não respondeu — ignora */ });
+  };
+
+  setInterval(poll, 3000);
+}
+
 app.on('ready', () => {
   if (app.isPackaged) {
     updateElectronApp({ repo: 'kennedyEmanoel/GestaoEstoque' });
@@ -107,10 +162,27 @@ app.on('ready', () => {
     }
   });
 
-  // Retransmite comandos do Controle de Produção para a janela do Painel
+  ipcMain.on('open-production-window-geral', () => {
+    createProductionWindowGeral();
+  });
+
+  ipcMain.on('close-production-window-geral', () => {
+    if (productionWindowGeral && !productionWindowGeral.isDestroyed()) {
+      productionWindowGeral.close();
+    }
+  });
+
+  // Retransmite comandos do Controle de Produção para a janela do Painel Detalhado
   ipcMain.on('dashboard-command', (_event, payload: unknown) => {
     if (productionWindow && !productionWindow.isDestroyed()) {
       productionWindow.webContents.send('dashboard-command', payload);
+    }
+  });
+
+  // Retransmite comandos para a janela do Painel Geral
+  ipcMain.on('dashboard-geral-command', (_event, payload: unknown) => {
+    if (productionWindowGeral && !productionWindowGeral.isDestroyed()) {
+      productionWindowGeral.webContents.send('dashboard-geral-command', payload);
     }
   });
 
@@ -122,9 +194,9 @@ app.on('ready', () => {
     .then((url) => {
       serverUrl = url;
       mainWindow.setTitle(`Gestão de Manufatura — Rede: ${url}`);
-      // Tenta liberar a porta no Firewall do Windows automaticamente
       const port = Number(new URL(url).port);
       if (port) ensureFirewallRule(port);
+      iniciarPollingComandoWeb(url);
     })
     .catch((err) => {
       console.error('Falha ao iniciar servidor interno:', err);

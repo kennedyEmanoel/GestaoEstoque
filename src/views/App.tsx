@@ -6,6 +6,7 @@ import History from './pages/History';
 import Settings from './pages/Settings';
 import Producao from './pages/Producao';
 import ProducaoDashboard from './pages/Producao/Dashboard';
+import DashboardGeral from './pages/Producao/DashboardGeral';
 import Header from './components/Header';
 
 const standaloneParam = new URLSearchParams(window.location.search).get('standalone');
@@ -25,6 +26,14 @@ const App = () => {
     return (
       <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
         <ProducaoDashboard standalone />
+      </div>
+    );
+  }
+
+  if (standaloneParam === 'producao-dashboard-geral') {
+    return (
+      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden' }}>
+        <DashboardGeral standalone />
       </div>
     );
   }
@@ -70,8 +79,9 @@ const App = () => {
           {abaAtiva === 'movimentacoes' && <Stock />}
           {abaAtiva === 'historico'    && <History />}
           {abaAtiva === 'configuracoes' && <Settings />}
-          {abaAtiva === 'producao'     && <Producao />}
-          {abaAtiva === 'producao-dashboard' && <ProducaoDashboard />}
+          {abaAtiva === 'producao'               && <Producao />}
+          {abaAtiva === 'producao-dashboard'         && <ProducaoDashboard />}
+          {abaAtiva === 'producao-dashboard-geral'   && <DashboardGeral />}
         </div>
 
       </main>

@@ -282,12 +282,17 @@ declare global {
       updateMetaHoraPadrao: (fichaId: number, meta: number) => Promise<ApiResponse>;
       getDashboardProducao: (filtros: DashboardProducaoFiltros) => Promise<ApiResponse<DashboardProducaoData>>;
       getDashboardPorEtapas: (data: string, produto?: string, horarioBloco?: string) => Promise<ApiResponse<DashboardPorEtapasData>>;
-      openProductionWindow:  () => void;
-      closeProductionWindow: () => void;
-      sendDashboardCommand:  (payload: DashboardCommand) => void;
-      onDashboardCommand:    (cb: (payload: DashboardCommand) => void) => void;
-      offDashboardCommand:   () => void;
-      getServerUrl:          () => Promise<string | null>;
+      openProductionWindow:       () => void;
+      closeProductionWindow:      () => void;
+      openProductionWindowGeral:  () => void;
+      closeProductionWindowGeral: () => void;
+      sendDashboardCommand:       (payload: DashboardCommand) => void;
+      sendDashboardGeralCommand:  (payload: DashboardCommand) => void;
+      onDashboardCommand:         (cb: (payload: DashboardCommand) => void) => void;
+      offDashboardCommand:        () => void;
+      onDashboardGeralCommand:    (cb: (payload: DashboardCommand) => void) => void;
+      offDashboardGeralCommand:   () => void;
+      getServerUrl:               () => Promise<string | null>;
     };
   }
 }
@@ -295,5 +300,6 @@ declare global {
 // ─── Comandos do Controle de Produção → Dashboard ─────────────────────────────
 
 export type DashboardCommand =
-  | { type: 'refresh'; data: string; produto: string; faixa: string }
-  | { type: 'alert';   mensagem: string };
+  | { type: 'refresh';      data: string; produto: string; faixa: string }
+  | { type: 'alert';        mensagem: string }
+  | { type: 'alert-image';  mensagem: string; imagemBase64: string; mimeType?: string };

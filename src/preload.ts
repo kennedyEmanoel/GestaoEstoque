@@ -44,13 +44,25 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.send('open-production-window'),
   closeProductionWindow: () =>
     ipcRenderer.send('close-production-window'),
+  openProductionWindowGeral: () =>
+    ipcRenderer.send('open-production-window-geral'),
+  closeProductionWindowGeral: () =>
+    ipcRenderer.send('close-production-window-geral'),
   sendDashboardCommand: (payload: unknown) =>
     ipcRenderer.send('dashboard-command', payload),
+  sendDashboardGeralCommand: (payload: unknown) =>
+    ipcRenderer.send('dashboard-geral-command', payload),
   onDashboardCommand: (cb: (payload: unknown) => void) => {
     ipcRenderer.on('dashboard-command', (_e, p) => cb(p));
   },
   offDashboardCommand: () => {
     ipcRenderer.removeAllListeners('dashboard-command');
+  },
+  onDashboardGeralCommand: (cb: (payload: unknown) => void) => {
+    ipcRenderer.on('dashboard-geral-command', (_e, p) => cb(p));
+  },
+  offDashboardGeralCommand: () => {
+    ipcRenderer.removeAllListeners('dashboard-geral-command');
   },
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
 });

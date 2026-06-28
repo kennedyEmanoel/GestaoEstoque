@@ -5,6 +5,7 @@ import type {
   RegistroHorario,
   EtapaProducao,
 } from '../../../shared/types';
+import SeletorDashboard from './SeletorDashboard';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
@@ -112,9 +113,10 @@ export default function Producao() {
   });
 
   // ── Estado dos controles do Dashboard ──────────────────────────────────────
-  const [dashData, setDashData]     = useState(today);
-  const [dashProduto, setDashProduto] = useState('');
-  const [dashFaixa, setDashFaixa]   = useState<string>(faixaAtualDashboard());
+  const [dashData, setDashData]         = useState(today);
+  const [dashProduto, setDashProduto]   = useState('');
+  const [dashFaixa, setDashFaixa]       = useState<string>(faixaAtualDashboard());
+  const [seletorAberto, setSeletorAberto] = useState(false);
 
 
   const [ficha, setFicha]       = useState<FichaDiariaCompleta | null>(null);
@@ -140,6 +142,10 @@ export default function Producao() {
 
   const enviarRefresh = () => {
     (window.api as any).sendDashboardCommand({ type: 'refresh', data: dashData, produto: dashProduto, faixa: dashFaixa });
+  };
+
+  const enviarRefreshGeral = () => {
+    (window.api as any).sendDashboardGeralCommand({ type: 'refresh', data: dashData, produto: dashProduto, faixa: dashFaixa });
   };
 
   // ── Carregar / criar ────────────────────────────────────────────────────────
@@ -324,13 +330,13 @@ export default function Producao() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: '#f1f5f9', fontFamily: 'system-ui,sans-serif', overflow: 'hidden' }}>
 
-      {/* ── Painel de controle do Dashboard ── */}
+      {/* ── Painel de controle dos Dashboards ── */}
       <div style={{
         background: '#0f2542', padding: '10px 14px', flexShrink: 0,
         borderBottom: '2px solid #1e3a5f',
       }}>
         <div style={{ fontSize: 9, fontWeight: 700, color: '#475569', letterSpacing: 1.5, marginBottom: 8 }}>
-          CONTROLE DO PAINEL DE PRODUÇÃO
+          CONTROLE DOS PAINÉIS DE PRODUÇÃO
         </div>
         <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
 
@@ -354,32 +360,61 @@ export default function Producao() {
             </select>
           </div>
 
-          {/* Botão Atualizar Painel */}
+          <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.1)', alignSelf: 'center' }} />
+
+          {/* ── Botão unificado: abre seletor ── */}
           <button
-            onClick={enviarRefresh}
-            style={{ padding: '4px 14px', borderRadius: 3, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}
+            onClick={() => setSeletorAberto(true)}
+            style={{ padding: '4px 16px', borderRadius: 3, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}
           >
-            Atualizar Painel
+            Abrir Painel ▾
           </button>
 
-          {/* Botão Abrir Painel */}
-          <button
-            onClick={() => window.api.openProductionWindow()}
-            style={{ padding: '4px 14px', borderRadius: 3, border: 'none', background: '#16a34a', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}
-          >
-            Abrir Painel
-          </button>
+          <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.1)', alignSelf: 'center' }} />
 
-          {/* Botão Fechar Painel */}
-          <button
-            onClick={() => window.api.closeProductionWindow()}
-            style={{ padding: '4px 14px', borderRadius: 3, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}
-          >
-            Fechar Painel
-          </button>
+          {/* ── Atualizar / Fechar por painel ── */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ color: '#3b82f6', fontSize: 9, fontWeight: 700, letterSpacing: 1 }}>DETALHADO</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button onClick={enviarRefresh}
+                style={{ padding: '4px 10px', borderRadius: 3, border: 'none', background: '#2563eb', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>
+                Atualizar
+              </button>
+              <button onClick={() => window.api.closeProductionWindow()}
+                style={{ padding: '4px 10px', borderRadius: 3, border: '1px solid #dc2626', background: 'transparent', color: '#dc2626', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>
+                Fechar
+              </button>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <div style={{ color: '#34d399', fontSize: 9, fontWeight: 700, letterSpacing: 1 }}>GERAL</div>
+            <div style={{ display: 'flex', gap: 4 }}>
+              <button onClick={enviarRefreshGeral}
+                style={{ padding: '4px 10px', borderRadius: 3, border: 'none', background: '#059669', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>
+                Atualizar
+              </button>
+              <button onClick={() => (window.api as any).closeProductionWindowGeral()}
+                style={{ padding: '4px 10px', borderRadius: 3, border: '1px solid #059669', background: 'transparent', color: '#34d399', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>
+                Fechar
+              </button>
+            </div>
+          </div>
 
         </div>
       </div>
+
+      {/* ── Seletor de dashboard ── */}
+      {seletorAberto && (
+        <SeletorDashboard
+          onSelecionar={(tipo) => {
+            setSeletorAberto(false);
+            if (tipo === 'detalhado') window.api.openProductionWindow();
+            else (window.api as any).openProductionWindowGeral();
+          }}
+          onFechar={() => setSeletorAberto(false)}
+        />
+      )}
 
       {/* ── Toolbar ── */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 12px', background: '#1e3a5f', flexShrink: 0, flexWrap: 'wrap' }}>

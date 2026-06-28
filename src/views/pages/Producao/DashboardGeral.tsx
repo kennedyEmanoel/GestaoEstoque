@@ -6,11 +6,12 @@ import {
   Title, Tooltip, Legend,
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import type { DashboardPorEtapasData, EtapaResumo, DadosPorOperador, DashboardCommand } from '../../../shared/types';
+import type { DashboardPorEtapasData, EtapaResumo, DashboardCommand } from '../../../shared/types';
+import AlertModal, { type AlertData } from './AlertModal';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
-// ─── Grade de faixas de horário (fonte da verdade) ────────────────────────────
+// ─── Grade de faixas de horário ───────────────────────────────────────────────
 
 const FAIXAS_BASE = [
   { inicio: [7, 12],  fim: [8,  0]  },
@@ -39,7 +40,6 @@ function faixaAtual(): string {
   const agora   = new Date();
   const minutos = agora.getHours() * 60 + agora.getMinutes();
   const sexta   = agora.getDay() === 5;
-
   for (const f of FAIXAS_BASE) {
     const ini    = f.inicio[0] * 60 + f.inicio[1];
     const fim    = ('fimSexta' in f && sexta ? f.fimSexta : f.fim) as [number, number];
@@ -53,29 +53,19 @@ const CARROSSEL_INTERVALO_MS = 1 * 60 * 1000;
 
 // ─── Paleta ───────────────────────────────────────────────────────────────────
 
-const COR_ETAPA: Record<string, { bg: string; text: string; bar: string }> = {
-  Montagem: { bg: '#1d4ed8', text: '#fff', bar: 'rgba(59,130,246,0.85)'  },
-  Soldagem: { bg: '#15803d', text: '#fff', bar: 'rgba(34,197,94,0.85)'   },
-  Revisão:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)'  },
-  Revisao:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)'  },
-  Firmware: { bg: '#b45309', text: '#fff', bar: 'rgba(245,158,11,0.85)'  },
-  IMEI:     { bg: '#0e7490', text: '#fff', bar: 'rgba(6,182,212,0.85)'   },
+const COR_ETAPA: Record<string, { bg: string; text: string; bar: string; accent: string }> = {
+  Montagem: { bg: '#1d4ed8', text: '#fff', bar: 'rgba(59,130,246,0.85)',  accent: '#93c5fd' },
+  Soldagem: { bg: '#15803d', text: '#fff', bar: 'rgba(34,197,94,0.85)',   accent: '#86efac' },
+  Revisão:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)', accent: '#d8b4fe' },
+  Revisao:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)', accent: '#d8b4fe' },
+  Firmware: { bg: '#b45309', text: '#fff', bar: 'rgba(245,158,11,0.85)', accent: '#fde68a' },
+  IMEI:     { bg: '#0e7490', text: '#fff', bar: 'rgba(6,182,212,0.85)',  accent: '#a5f3fc' },
 };
-const COR_DEFAULT = { bg: '#483751', text: '#fff', bar: 'rgba(107,114,128,0.85)' };
+const COR_DEFAULT = { bg: '#483751', text: '#fff', bar: 'rgba(107,114,128,0.85)', accent: '#e2e8f0' };
 
-function corEtapa(etapa: string) {
-  return COR_ETAPA[etapa] ?? COR_DEFAULT;
-}
+function corEtapa(etapa: string) { return COR_ETAPA[etapa] ?? COR_DEFAULT; }
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
-
-function Vazio({ height = 200 }: { height?: number }) {
-  return (
-    <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 16 }}>
-      Sem registros para esta faixa de horário
-    </div>
-  );
-}
 
 function BadgeFaixa({ faixa }: { faixa: string }) {
   return (
@@ -92,144 +82,48 @@ function BadgeFaixa({ faixa }: { faixa: string }) {
   );
 }
 
-function EtapaHeader({ etapa, produto, totalRealizado, pctAtingimento }: EtapaResumo) {
-  const cor = corEtapa(etapa);
-  const pctColor = pctAtingimento !== null
-    ? pctAtingimento >= 100 ? '#86efac'
-    : pctAtingimento >= 80  ? '#fde68a'
-    : '#fca5a5'
-    : 'rgba(255,255,255,0.5)';
+function EtapaCard({ etapa, faixaDados }: { etapa: EtapaResumo; faixaDados: EtapaResumo | undefined }) {
+  const cor = corEtapa(etapa.etapa);
+
+  // Dados do dia inteiro (sidebar) vs faixa atual (destaque)
+  const realizadoDia   = etapa.totalRealizado;
+  const metaDia        = etapa.totalMeta;
+  const pctDia         = metaDia > 0 ? (realizadoDia / metaDia) * 100 : null;
+
+  const realizadoFaixa = faixaDados?.totalRealizado ?? 0;
+  const metaFaixa      = faixaDados?.totalMeta      ?? 0;
+  const pctFaixa       = metaFaixa > 0 ? (realizadoFaixa / metaFaixa) * 100 : null;
+
+  const pctColor = (pct: number | null) =>
+    pct === null ? 'rgba(255,255,255,0.5)'
+    : pct >= 100 ? '#86efac'
+    : pct >= 80  ? '#fde68a'
+    : '#fca5a5';
 
   return (
-    <div style={{
-      background: cor.bg, color: cor.text, borderRadius: 10,
-      padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 10,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: 1.5, lineHeight: 1 }}>
-          {etapa.toUpperCase()}
-        </div>
-        <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>
-          {produto}
-        </div>
-      </div>
-      <div style={{ display: 'flex', gap: 8 }}>
-        <div style={{ flex: 1, background: 'rgba(0,0,0,0.25)', borderRadius: 6, padding: '8px 10px', minHeight: 54 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 1, marginBottom: 4 }}>REALIZADO</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
-            {totalRealizado.toLocaleString('pt-BR')}
+    <div style={{ background: cor.bg, color: cor.text, borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: 1.5 }}>{etapa.etapa.toUpperCase()}</div>
+      {etapa.produto && (
+        <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{etapa.produto}</div>
+      )}
+      <div style={{ display: 'flex', gap: 6 }}>
+        <div style={{ flex: 1, background: 'rgba(0,0,0,0.25)', borderRadius: 6, padding: '6px 8px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 1 }}>DIA</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#fff', lineHeight: 1 }}>{realizadoDia}</div>
+          <div style={{ fontSize: 11, color: pctColor(pctDia), fontWeight: 700 }}>
+            {pctDia !== null ? `${pctDia.toFixed(1)}%` : '—'}
           </div>
         </div>
-        <div style={{ flex: 1, background: 'rgba(0,0,0,0.25)', borderRadius: 6, padding: '8px 10px', minHeight: 54 }}>
-          <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 1, marginBottom: 4 }}>EFICIÊNCIA</div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: pctColor, lineHeight: 1 }}>
-            {pctAtingimento !== null ? `${pctAtingimento.toFixed(1)}%` : '—'}
+        <div style={{ flex: 1, background: 'rgba(0,0,0,0.25)', borderRadius: 6, padding: '6px 8px' }}>
+          <div style={{ fontSize: 9, fontWeight: 700, color: 'rgba(255,255,255,0.55)', letterSpacing: 1 }}>FAIXA</div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: cor.accent, lineHeight: 1 }}>{realizadoFaixa}</div>
+          <div style={{ fontSize: 11, color: pctColor(pctFaixa), fontWeight: 700 }}>
+            {pctFaixa !== null ? `${pctFaixa.toFixed(1)}%` : '—'}
           </div>
         </div>
       </div>
     </div>
   );
-}
-
-function CardOperador({ op }: { op: DadosPorOperador }) {
-  const pct   = op.totalMeta > 0 ? (op.totalRealizado / op.totalMeta) * 100 : null;
-  const saldo = op.totalRealizado - op.totalMeta;
-  const bateu   = pct !== null && pct >= 100;
-  const parcial = pct !== null && pct >= 80 && pct < 100;
-
-  const bg       = bateu  ? '#14532d' : parcial ? '#78350f' : '#7f1d1d';
-  const border   = bateu  ? '#22c55e' : parcial ? '#f59e0b' : '#dc2626';
-  const numColor = bateu  ? '#86efac' : parcial ? '#fde68a' : '#fca5a5';
-  const icon     = bateu  ? '✓'       : parcial ? '~'       : '✗';
-  const barPct   = Math.min(pct ?? 0, 120);
-
-  return (
-    <div style={{
-      background: bg, borderRadius: 12, border: `3px solid ${border}`,
-      padding: '14px 16px',
-      display: 'flex', flexDirection: 'column', gap: 10,
-      boxShadow: `0 0 16px ${border}55`,
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: '#fff', letterSpacing: 0.3 }}>
-          {op.operadorNome}
-        </div>
-        <div style={{ fontSize: 24, lineHeight: 1, color: border }}>{icon}</div>
-      </div>
-
-      <div style={{ display: 'flex', gap: 10 }}>
-        <div>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: 0.8 }}>REAL.</div>
-          <div style={{ fontSize: 32, fontWeight: 900, color: '#fff', lineHeight: 1 }}>{op.totalRealizado}</div>
-        </div>
-        <div style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: 10 }}>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: 0.8 }}>META</div>
-          <div style={{ fontSize: 32, fontWeight: 900, color: 'rgba(255,255,255,0.5)', lineHeight: 1 }}>{op.totalMeta}</div>
-        </div>
-        <div style={{ borderLeft: '1px solid rgba(255,255,255,0.15)', paddingLeft: 10 }}>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700, letterSpacing: 0.8 }}>SALDO</div>
-          <div style={{ fontSize: 32, fontWeight: 900, color: numColor, lineHeight: 1 }}>
-            {saldo >= 0 ? `+${saldo}` : saldo}
-          </div>
-        </div>
-      </div>
-
-      <div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
-          <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.5)', fontWeight: 700 }}>EFICIÊNCIA</div>
-          <div style={{ fontSize: 13, fontWeight: 900, color: numColor }}>
-            {pct !== null ? `${pct.toFixed(1)}%` : '—'}
-          </div>
-        </div>
-        <div style={{ height: 12, background: 'rgba(0,0,0,0.35)', borderRadius: 6, overflow: 'hidden' }}>
-          <div style={{
-            height: '100%', width: `${barPct}%`,
-            background: border, borderRadius: 6,
-            transition: 'width 0.6s ease',
-          }} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BarOperadores({ operadores, corBarra }: { operadores: DadosPorOperador[]; corBarra: string }) {
-  const data = {
-    labels: operadores.map(o => o.operadorNome),
-    datasets: [
-      {
-        label: 'Realizado',
-        data: operadores.map(o => o.totalRealizado),
-        backgroundColor: corBarra,
-        borderRadius: 6, barPercentage: 0.6,
-      },
-      {
-        label: 'Saldo',
-        data: operadores.map(o => o.totalRealizado - o.totalMeta),
-        backgroundColor: operadores.map(o =>
-          o.totalRealizado - o.totalMeta >= 0 ? 'rgba(134,239,172,0.8)' : 'rgba(252,165,165,0.8)'
-        ),
-        borderRadius: 6, barPercentage: 0.6,
-      },
-    ],
-  };
-
-  const options = {
-    responsive: true, maintainAspectRatio: false,
-    plugins: {
-      legend: { position: 'top' as const, labels: { font: { size: 13 }, padding: 14, color: '#334155' } },
-      tooltip: {
-        titleFont: { size: 13 }, bodyFont: { size: 13 },
-        callbacks: { afterLabel: (ctx: any) => `Meta: ${operadores[ctx.dataIndex].totalMeta}` },
-      },
-    },
-    scales: {
-      y: { beginAtZero: true, grid: { color: '#e2e8f0' }, ticks: { font: { size: 13 }, color: '#475569' } },
-      x: { grid: { display: false },                       ticks: { font: { size: 13 }, color: '#475569' } },
-    },
-  };
-
-  return <Bar data={data} options={options} />;
 }
 
 function BarConsolidado({ etapas }: { etapas: EtapaResumo[] }) {
@@ -250,7 +144,6 @@ function BarConsolidado({ etapas }: { etapas: EtapaResumo[] }) {
       },
     ],
   };
-
   const options = {
     responsive: true, maintainAspectRatio: false,
     plugins: {
@@ -261,13 +154,11 @@ function BarConsolidado({ etapas }: { etapas: EtapaResumo[] }) {
       x: { grid: { display: false },                       ticks: { font: { size: 11 }, color: '#475569' } },
     },
   };
-
   return <Bar data={data} options={options} />;
 }
 
 function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
   const total = etapas.reduce((s, e) => s + e.totalRealizado, 0);
-
   const data = {
     labels: etapas.map(e => e.etapa.toUpperCase()),
     datasets: [{
@@ -276,7 +167,6 @@ function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
       borderWidth: 2, borderColor: '#f1f5f9',
     }],
   };
-
   const options = {
     responsive: true, maintainAspectRatio: false,
     plugins: {
@@ -291,31 +181,200 @@ function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
       },
     },
   };
-
   return <Doughnut data={data} options={options} />;
+}
+
+// ─── Painel de detalhe de uma etapa (sem operadores) ─────────────────────────
+
+function DetalheEtapa({ etapa, faixaDados, faixaSelecionada }: {
+  etapa: EtapaResumo;
+  faixaDados: EtapaResumo | undefined;
+  faixaSelecionada: string;
+}) {
+  const cor = corEtapa(etapa.etapa);
+
+  const realizadoFaixa = faixaDados?.totalRealizado ?? 0;
+  const metaFaixa      = faixaDados?.totalMeta      ?? 0;
+  const pctFaixa       = metaFaixa > 0 ? (realizadoFaixa / metaFaixa) * 100 : null;
+  const saldoFaixa     = realizadoFaixa - metaFaixa;
+
+  const realizadoDia   = etapa.totalRealizado;
+  const metaDia        = etapa.totalMeta;
+  const pctDia         = metaDia > 0 ? (realizadoDia / metaDia) * 100 : null;
+  const saldoDia       = realizadoDia - metaDia;
+
+  const pctColor = (pct: number | null) =>
+    pct === null ? '#94a3b8' : pct >= 100 ? '#86efac' : pct >= 80 ? '#fde68a' : '#fca5a5';
+
+  // Gráfico de barras por hora (sem operadores — totais por hora)
+  const porHora = faixaDados?.porHora ?? etapa.porHora;
+  const barData = {
+    labels: porHora.map(h => h.horarioBloco),
+    datasets: [
+      {
+        label: 'Realizado',
+        data: porHora.map(h => h.realizado),
+        backgroundColor: cor.bar,
+        borderRadius: 5, barPercentage: 0.6,
+      },
+      {
+        label: 'Meta',
+        data: porHora.map(h => h.meta),
+        backgroundColor: 'rgba(148,163,184,0.45)',
+        borderRadius: 5, barPercentage: 0.6,
+      },
+    ],
+  };
+  const barOptions = {
+    responsive: true, maintainAspectRatio: false,
+    plugins: {
+      legend: { position: 'top' as const, labels: { font: { size: 13 }, padding: 14, color: '#334155' } },
+    },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#e2e8f0' }, ticks: { font: { size: 12 }, color: '#475569' } },
+      x: { grid: { display: false },                       ticks: { font: { size: 11 }, color: '#475569' } },
+    },
+  };
+
+  return (
+    <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+      {/* Cabeçalho */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        flexWrap: 'wrap', gap: 12,
+        background: cor.bg, borderRadius: 12, padding: '14px 20px',
+      }}>
+        <div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: '#fff', letterSpacing: 2, lineHeight: 1 }}>
+            {etapa.etapa.toUpperCase()}
+          </div>
+          {etapa.produto && (
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>
+              {etapa.produto}
+            </div>
+          )}
+        </div>
+        <BadgeFaixa faixa={faixaSelecionada} />
+      </div>
+
+      {/* KPIs em destaque */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 14 }}>
+        {/* Realizado na faixa */}
+        <KpiBox
+          label={`REALIZADO — ${faixaSelecionada}`}
+          value={String(realizadoFaixa)}
+          sub={`Meta: ${metaFaixa}`}
+          color={cor.accent}
+          bg={cor.bg}
+        />
+        {/* Eficiência na faixa */}
+        <KpiBox
+          label="EFICIÊNCIA DA FAIXA"
+          value={pctFaixa !== null ? `${pctFaixa.toFixed(1)}%` : '—'}
+          sub={`Saldo: ${saldoFaixa >= 0 ? '+' : ''}${saldoFaixa}`}
+          color={pctColor(pctFaixa)}
+          bg="#0f2542"
+        />
+        {/* Acumulado no dia */}
+        <KpiBox
+          label="ACUMULADO DO DIA"
+          value={String(realizadoDia)}
+          sub={pctDia !== null ? `Efic.: ${pctDia.toFixed(1)}% | Saldo: ${saldoDia >= 0 ? '+' : ''}${saldoDia}` : 'Sem meta'}
+          color="#fff"
+          bg="#1e3a5f"
+        />
+      </div>
+
+      {/* Gráfico por hora */}
+      <div style={{ background: '#fff', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 8, letterSpacing: 0.5 }}>
+          PRODUÇÃO POR FAIXA DE HORÁRIO
+        </div>
+        <div style={{ height: 220 }}>
+          {porHora.length > 0
+            ? <Bar data={barData} options={barOptions} />
+            : <Vazio height={220} />
+          }
+        </div>
+      </div>
+
+      {/* Progresso visual do dia */}
+      <div style={{ background: '#fff', padding: '14px 16px', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 10, letterSpacing: 0.5 }}>
+          PROGRESSO DO DIA
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ flex: 1, height: 28, background: '#e2e8f0', borderRadius: 14, overflow: 'hidden' }}>
+            <div style={{
+              height: '100%',
+              width: `${Math.min(pctDia ?? 0, 100)}%`,
+              background: cor.bg,
+              borderRadius: 14,
+              transition: 'width 0.8s ease',
+              display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 8,
+            }}>
+              {(pctDia ?? 0) > 15 && (
+                <span style={{ color: '#fff', fontWeight: 800, fontSize: 13 }}>
+                  {pctDia!.toFixed(0)}%
+                </span>
+              )}
+            </div>
+          </div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: pctColor(pctDia), minWidth: 56, textAlign: 'right' }}>
+            {pctDia !== null ? `${pctDia.toFixed(1)}%` : '—'}
+          </div>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 6, fontSize: 11, color: '#64748b' }}>
+          <span>Realizado: <strong>{realizadoDia}</strong></span>
+          <span>Meta: <strong>{metaDia}</strong></span>
+          <span>Saldo: <strong style={{ color: pctColor(pctDia) }}>{saldoDia >= 0 ? '+' : ''}{saldoDia}</strong></span>
+        </div>
+      </div>
+
+    </div>
+  );
+}
+
+function KpiBox({ label, value, sub, color, bg }: { label: string; value: string; sub: string; color: string; bg: string }) {
+  return (
+    <div style={{ background: bg, borderRadius: 12, padding: '16px 18px', display: 'flex', flexDirection: 'column', gap: 6, border: '1px solid rgba(255,255,255,0.08)' }}>
+      <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.5)', letterSpacing: 1.2 }}>{label}</div>
+      <div style={{ fontSize: 40, fontWeight: 900, color, lineHeight: 1 }}>{value}</div>
+      <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.45)', fontWeight: 600 }}>{sub}</div>
+    </div>
+  );
+}
+
+function Vazio({ height = 200 }: { height?: number }) {
+  return (
+    <div style={{ height, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 16 }}>
+      Sem registros para esta faixa de horário
+    </div>
+  );
 }
 
 // ─── Componente principal ─────────────────────────────────────────────────────
 
-export default function ProducaoDashboard({ standalone = false }: { standalone?: boolean }) {
+export default function DashboardGeral({ standalone = false }: { standalone?: boolean }) {
   const today = new Date().toISOString().slice(0, 10);
 
-  const [data]                    = useState(today);
-  const [produtoInput]            = useState('');
   const [faixaSelecionada, setFaixaSelecionada] = useState<string>(faixaAtual());
   const [dados, setDados]                       = useState<DashboardPorEtapasData | null>(null);
   const [dadosDia, setDadosDia]                 = useState<DashboardPorEtapasData | null>(null);
   const [loading, setLoading]                   = useState(false);
   const [erro, setErro]                         = useState<string | null>(null);
   const [etapaSelecionada, setEtapaSelecionada] = useState<EtapaResumo | null>(null);
+  const [isFullscreen, setIsFullscreen]         = useState(false);
   const [rotacaoAtiva, setRotacaoAtiva]         = useState(false);
+  const [alertAtivo, setAlertAtivo]             = useState<AlertData | null>(null);
 
   const rootRef   = useRef<HTMLDivElement>(null);
   const timerRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const etapasRef = useRef<EtapaResumo[]>([]);
   const indiceRef = useRef(0);
 
-  useEffect(() => { etapasRef.current = dados?.etapas ?? []; }, [dados]);
+  useEffect(() => { etapasRef.current = dadosDia?.etapas ?? []; }, [dadosDia]);
 
   // ── Carrossel ────────────────────────────────────────────────────────────────
   const pararCarrossel = useCallback(() => {
@@ -343,6 +402,11 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
     else document.exitFullscreen();
   }, []);
 
+  useEffect(() => {
+    const onFsChange = () => setIsFullscreen(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', onFsChange);
+    return () => document.removeEventListener('fullscreenchange', onFsChange);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -370,10 +434,10 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
       if (!resDia.success)   throw new Error(resDia.error);
       const payload    = resFaixa.data as DashboardPorEtapasData;
       const payloadDia = resDia.data   as DashboardPorEtapasData;
-      etapasRef.current = payload.etapas;
+      etapasRef.current = payloadDia.etapas;
       setDados(payload);
       setDadosDia(payloadDia);
-      iniciarCarrossel(payload.etapas);
+      iniciarCarrossel(payloadDia.etapas);
     } catch (e: any) {
       setErro(e.message ?? 'Erro ao carregar dashboard');
     } finally {
@@ -383,16 +447,20 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
 
   useEffect(() => { carregar(today, '', faixaAtual()); }, []);
 
-  // ── Listener de comandos do Controle de Produção ─────────────────────────────
+  // ── Listener de comandos ─────────────────────────────────────────────────────
   useEffect(() => {
     const api = window.api as typeof window.api;
-    api.onDashboardCommand((cmd: DashboardCommand) => {
+    api.onDashboardGeralCommand((cmd: DashboardCommand) => {
       if (cmd.type === 'refresh') {
         setFaixaSelecionada(cmd.faixa);
         carregar(cmd.data, cmd.produto, cmd.faixa);
+      } else if (cmd.type === 'alert') {
+        setAlertAtivo({ mensagem: cmd.mensagem });
+      } else if (cmd.type === 'alert-image') {
+        setAlertAtivo({ mensagem: cmd.mensagem, imagemBase64: cmd.imagemBase64, mimeType: cmd.mimeType });
       }
     });
-    return () => { api.offDashboardCommand(); };
+    return () => { api.offDashboardGeralCommand(); };
   }, [carregar]);
 
   const selecionarManual = (etapa: EtapaResumo) => {
@@ -401,7 +469,7 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
   };
 
   // ─── Render ──────────────────────────────────────────────────────────────────
-  const totalGeral = dados?.totalGeral;
+  const totalGeral = dadosDia?.totalGeral;
   const pctGeral   = totalGeral && totalGeral.meta > 0
     ? (totalGeral.realizado / totalGeral.meta) * 100 : null;
 
@@ -412,24 +480,18 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
       overflow: 'hidden',
     }}>
 
-      {/* ── Barra de status (só leitura) ── */}
-      {/* <div style={{
+      {/* ── Barra de status ── */}
+      <div style={{
         display: 'flex', alignItems: 'center', gap: 14,
-        padding: '8px 16px', background: '#1e3a5f', flexWrap: 'wrap', flexShrink: 0,
+        padding: '8px 16px', background: '#0f2542', flexWrap: 'wrap', flexShrink: 0,
+        borderBottom: '2px solid #1e3a5f',
       }}>
-        <div style={{ color: '#f1f5f9', fontWeight: 800, fontSize: 16, letterSpacing: 1 }}>
-          PAINEL DE PRODUÇÃO
+        <div style={{ color: '#f1f5f9', fontWeight: 800, fontSize: 14, letterSpacing: 1 }}>
+          PAINEL GERAL DE PRODUÇÃO
         </div>
 
-        <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.15)' }} />
-
+        <div style={{ width: 1, height: 24, background: 'rgba(255,255,255,0.15)' }} />
         <BadgeFaixa faixa={faixaSelecionada} />
-
-        <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.15)' }} />
-
-        <div style={{ color: '#93c5fd', fontSize: 12, fontWeight: 600 }}>
-          {data} {produtoInput ? `· ${produtoInput}` : '· Todos os produtos'}
-        </div>
 
         {rotacaoAtiva && (
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#fb923c', fontSize: 11, fontWeight: 700 }}>
@@ -438,10 +500,10 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
           </div>
         )}
 
-        {dados && (
-          <div style={{ marginLeft: 'auto', display: 'flex', gap: 22, alignItems: 'center' }}>
-            <TotalPill label="TOTAL REALIZADO" value={totalGeral?.realizado ?? 0} color="#86efac" />
-            <TotalPill label="META TOTAL"      value={totalGeral?.meta      ?? 0} color="#93c5fd" />
+        {totalGeral && (
+          <div style={{ marginLeft: 'auto', display: 'flex', gap: 20, alignItems: 'center' }}>
+            <TotalPill label="REALIZADO" value={totalGeral.realizado} color="#86efac" />
+            <TotalPill label="META"      value={totalGeral.meta}      color="#93c5fd" />
             <TotalPill
               label="% GERAL"
               value={pctGeral !== null ? `${pctGeral.toFixed(1)}%` : '—'}
@@ -450,18 +512,18 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
             />
             <button onClick={toggleFullscreen}
               title={isFullscreen ? 'Sair (F11)' : 'Tela cheia (F11)'}
-              style={{ padding: '5px 10px', borderRadius: 4, border: '1px solid #334155', background: '#0f2542', color: '#94a3b8', cursor: 'pointer', fontSize: 15, display: 'flex', alignItems: 'center' }}>
-              ⛶<span style={{ fontSize: 10, marginLeft: 4, color: '#64748b' }}>F11</span>
+              style={{ padding: '5px 10px', borderRadius: 4, border: '1px solid #334155', background: '#1e3a5f', color: '#94a3b8', cursor: 'pointer', fontSize: 14 }}>
+              ⛶
             </button>
             {standalone && (
-              <button onClick={() => window.api.closeProductionWindow()}
+              <button onClick={() => window.api.closeProductionWindowGeral()}
                 style={{ padding: '5px 12px', borderRadius: 4, border: 'none', background: '#dc2626', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 12 }}>
                 Fechar
               </button>
             )}
           </div>
         )}
-      </div> */}
+      </div>
 
       {/* Erro */}
       {erro && (
@@ -476,7 +538,7 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
 
         {/* ── Sidebar ── */}
         <div style={{
-          width: '300px', minWidth: '300px', height: '100%',
+          width: '260px', minWidth: '260px', height: '100%',
           overflowY: 'auto', padding: '12px 10px',
           background: '#e2e8f0', borderRight: '1px solid #cbd5e1',
           display: 'flex', flexDirection: 'column', gap: 8,
@@ -488,21 +550,21 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
           )}
 
           {dadosDia?.etapas.map(etapa => {
-            const ativa = etapaSelecionada?.etapa === etapa.etapa;
-            const etapaBloco = dados?.etapas.find(e => e.etapa === etapa.etapa) ?? etapa;
+            const ativa        = etapaSelecionada?.etapa === etapa.etapa;
+            const faixaDados   = dados?.etapas.find(e => e.etapa === etapa.etapa);
             return (
               <div
                 key={etapa.etapa}
-                onClick={() => selecionarManual(etapaBloco)}
+                onClick={() => selecionarManual(etapa)}
                 style={{
                   borderRadius: 10, cursor: 'pointer',
                   boxShadow: ativa ? `0 0 0 3px ${corEtapa(etapa.etapa).bg}` : '0 1px 4px rgba(0,0,0,0.10)',
-                  opacity: ativa ? 1 : 0.7,
+                  opacity: ativa ? 1 : 0.72,
                   transition: 'opacity 0.15s, box-shadow 0.15s',
                   transform: ativa ? 'scale(1.01)' : 'scale(1)',
                 }}
               >
-                <EtapaHeader {...etapa} />
+                <EtapaCard etapa={etapa} faixaDados={faixaDados} />
               </div>
             );
           })}
@@ -513,11 +575,11 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
               <div style={{ fontWeight: 800, fontSize: 11, color: '#475569', marginBottom: 8, letterSpacing: 0.5 }}>
                 CONSOLIDADO
               </div>
-              <div style={{ height: 160 }}><BarConsolidado etapas={dadosDia.etapas} /></div>
+              <div style={{ height: 150 }}><BarConsolidado etapas={dadosDia.etapas} /></div>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginTop: 12, marginBottom: 6 }}>
                 PRODUÇÃO POR SETOR
               </div>
-              <div style={{ height: 160 }}><DonutSetores etapas={dadosDia.etapas} /></div>
+              <div style={{ height: 150 }}><DonutSetores etapas={dadosDia.etapas} /></div>
             </div>
           )}
         </div>
@@ -525,89 +587,29 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
         {/* ── Painel de detalhe ── */}
         <div style={{ flex: 1, height: '100%', overflowY: 'auto', backgroundColor: '#f8fafc' }}>
           {!etapaSelecionada ? (
-            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: '#94a3b8' }}>
+            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: 12, color: '#94a3b8' }}>
               <div style={{ fontSize: 48 }}>←</div>
               <div style={{ fontSize: 18, fontWeight: 600 }}>Selecione uma etapa no menu lateral</div>
             </div>
           ) : (
-            <div style={{ padding: '18px 22px', display: 'flex', flexDirection: 'column', gap: 18 }}>
-
-              {/* Cabeçalho: etapa + faixa em destaque */}
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                flexWrap: 'wrap', gap: 12, flexShrink: 0,
-                background: corEtapa(etapaSelecionada.etapa).bg,
-                borderRadius: 12, padding: '12px 20px',
-              }}>
-                <div>
-                  <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', letterSpacing: 2, lineHeight: 1 }}>
-                    {etapaSelecionada.etapa.toUpperCase()}
-                  </div>
-                  {etapaSelecionada.produto && (
-                    <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>
-                      {etapaSelecionada.produto}
-                    </div>
-                  )}
-                </div>
-
-                <div style={{
-                  background: 'rgba(0,0,0,0.25)', borderRadius: 10,
-                  padding: '8px 18px', textAlign: 'right',
-                  border: '2px solid rgba(255,255,255,0.3)',
-                }}>
-                  <div style={{ fontSize: 10, fontWeight: 700, color: 'rgba(255,255,255,0.6)', letterSpacing: 2, marginBottom: 2 }}>
-                    FAIXA DE HORÁRIO
-                  </div>
-                  <div style={{ fontSize: 26, fontWeight: 900, color: '#fff', letterSpacing: 3, lineHeight: 1 }}>
-                    {faixaSelecionada}
-                  </div>
-                </div>
-              </div>
-
-              {/* Gráfico */}
-              <div style={{ background: '#fff', padding: '12px 16px', borderRadius: 12, border: '1px solid #e2e8f0', boxShadow: '0 1px 4px rgba(0,0,0,0.05)', flexShrink: 0 }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', marginBottom: 8, letterSpacing: 0.5 }}>
-                  REALIZADO × SALDO POR OPERADOR — {faixaSelecionada}
-                </div>
-                <div style={{ height: 180 }}>
-                  {etapaSelecionada.porOperador.some(o => o.totalRealizado > 0 || o.totalMeta > 0)
-                    ? <BarOperadores operadores={etapaSelecionada.porOperador} corBarra={corEtapa(etapaSelecionada.etapa).bar} />
-                    : <Vazio height={180} />
-                  }
-                </div>
-              </div>
-
-              {/* Cards de operadores */}
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 700, color: '#475569', marginBottom: 10, letterSpacing: 0.5 }}>
-                  DETALHE POR OPERADOR — {faixaSelecionada}
-                </div>
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, 1fr)',
-                  gap: 14,
-                  alignContent: 'start',
-                }}>
-                  {etapaSelecionada.porOperador.map(op => (
-                    <CardOperador key={op.operadorNome} op={op} />
-                  ))}
-                </div>
-              </div>
-
-            </div>
+            <DetalheEtapa
+              etapa={dadosDia?.etapas.find(e => e.etapa === etapaSelecionada.etapa) ?? etapaSelecionada}
+              faixaDados={dados?.etapas.find(e => e.etapa === etapaSelecionada.etapa)}
+              faixaSelecionada={faixaSelecionada}
+            />
           )}
         </div>
-
       </div>
+
+      {/* ── Alert Modal ── */}
+      {alertAtivo && (
+        <AlertModal alert={alertAtivo} onClose={() => setAlertAtivo(null)} />
+      )}
 
       <style>{`
         @keyframes alertaEntrada {
           from { transform: scale(1.04); opacity: 0; }
           to   { transform: scale(1);    opacity: 1; }
-        }
-        @keyframes pulsar {
-          0%, 100% { transform: scale(1);    opacity: 1;   }
-          50%       { transform: scale(1.15); opacity: 0.7; }
         }
         @keyframes spin {
           from { transform: rotate(0deg); }
@@ -618,15 +620,13 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
   );
 }
 
-// ─── Pill de total ────────────────────────────────────────────────────────────
-
 function TotalPill({ label, value, color, isString }: {
   label: string; value: number | string; color: string; isString?: boolean;
 }) {
   return (
     <div style={{ textAlign: 'center' }}>
-      <div style={{ fontSize: 10, color: '#64748b', fontWeight: 700, letterSpacing: 1.2 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 800, color, lineHeight: 1.1 }}>
+      <div style={{ fontSize: 9, color: '#64748b', fontWeight: 700, letterSpacing: 1.2 }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 800, color, lineHeight: 1.1 }}>
         {isString ? value : (value as number).toLocaleString('pt-BR')}
       </div>
     </div>
