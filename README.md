@@ -1,3 +1,5 @@
+<img width="1917" height="878" alt="Captura de tela 2026-07-20 191003" src="https://github.com/user-attachments/assets/b0fc0106-c409-4e83-8d5e-d63923503363" />
+
 O sistema foi projetado para modernizar completamente a forma como o chão de fábrica pode acompanhar a produção. Entre as principais funcionalidades que desenvolvi, destaco:
 
 ### 🎯 Principais Funcionalidades
