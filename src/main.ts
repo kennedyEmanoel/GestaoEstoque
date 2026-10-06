@@ -3,8 +3,6 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import started from 'electron-squirrel-startup';
 import { updateElectronApp } from 'update-electron-app';
-import { setupBoxControllers } from './main/controllers/boxController';
-import { setupDashboardControllers } from './main/controllers/dashboardController';
 import { setupProducaoControllers } from './main/controllers/producaoController';
 import { startInternalServer } from './main/server/internalServer';
 
@@ -148,8 +146,7 @@ app.on('ready', () => {
     updateElectronApp({ repo: 'kennedyEmanoel/GestaoEstoque' });
   }
 
-  setupBoxControllers();
-  setupDashboardControllers();
+
   setupProducaoControllers();
 
   ipcMain.on('open-production-window', () => {

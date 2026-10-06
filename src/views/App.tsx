@@ -1,8 +1,5 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
-import Dashboard from './pages/Dashboard';
-import Stock from './pages/Stock';
-import History from './pages/History';
 import Settings from './pages/Settings';
 import Producao from './pages/Producao';
 import ProducaoDashboard from './pages/Producao/Dashboard';
@@ -12,7 +9,7 @@ import Header from './components/Header';
 const standaloneParam = new URLSearchParams(window.location.search).get('standalone');
 
 const App = () => {
-  const [abaAtiva, setAbaAtiva] = useState('dashboard');
+  const [abaAtiva, setAbaAtiva] = useState('producao');
   const [sidebarAberta, setSidebarAberta] = useState(false);
   const [serverUrl, setServerUrl] = useState<string | null>(null);
 
@@ -75,9 +72,6 @@ const App = () => {
         />
 
         <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
-          {abaAtiva === 'dashboard'    && <Dashboard />}
-          {abaAtiva === 'movimentacoes' && <Stock />}
-          {abaAtiva === 'historico'    && <History />}
           {abaAtiva === 'configuracoes' && <Settings />}
           {abaAtiva === 'producao'               && <Producao />}
           {abaAtiva === 'producao-dashboard'         && <ProducaoDashboard />}
