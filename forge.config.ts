@@ -45,7 +45,7 @@ const config: ForgeConfig = {
   },
   publishers: [
     new PublisherGithub({
-      repository: { owner: 'kennedyEmanoel', name: 'Producao' },
+      repository: { owner: 'kennedyEmanoel', name: 'GestaoEstoque' },
       prerelease: false,
     }),
   ],
