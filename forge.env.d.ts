@@ -1,6 +1,5 @@
 /// <reference types="@electron-forge/plugin-vite/forge-vite-env" />
 
-// Estendendo a interface Window globalmente e de forma direta
 interface Window {
   api: {
     createBox: (data: {

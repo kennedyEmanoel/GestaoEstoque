@@ -26,15 +26,15 @@ const config: ForgeConfig = {
     asar: {
       unpack: '**/*.node',
     },
-    name: 'GestaoEstoque',
-    executableName: 'GestaoEstoque',
+    name: 'Producao',
+    executableName: 'Producao',
+    icon: './assets/icon',
   },
   rebuildConfig: {
     extraModules: ['better-sqlite3'],
   },
   hooks: {
     packageAfterCopy: async (_config, buildPath) => {
-      // Copia better-sqlite3 e suas dependências para dentro do pacote
       const deps = ['better-sqlite3', 'bindings', 'file-uri-to-path'];
       for (const dep of deps) {
         const src  = path.join(process.cwd(), 'node_modules', dep);
@@ -45,14 +45,14 @@ const config: ForgeConfig = {
   },
   publishers: [
     new PublisherGithub({
-      repository: { owner: 'kennedyEmanoel', name: 'GestaoEstoque' },
+      repository: { owner: 'kennedyEmanoel', name: 'Producao' },
       prerelease: false,
     }),
   ],
   makers: [
     new MakerSquirrel({
-      name: 'GestaoEstoque',
-      setupExe: 'GestaoEstoque-Setup.exe',
+      name: 'Producao',
+      setupExe: 'Producao-Setup.exe',
       noMsi: true,
     }),
     new MakerZIP({}, ['darwin']),

@@ -47,7 +47,7 @@ const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
   return (
     <aside className="w-56 h-full bg-white border-r border-zinc-200 flex flex-col">
 
-      {/* Logo / Marca */}
+
       <div className="px-5 py-5 border-b border-zinc-100 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">

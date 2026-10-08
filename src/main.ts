@@ -11,8 +11,7 @@ function ensureFirewallRule(port: number) {
   const ruleName = `GestaoEstoque-Web-${port}`;
   // Verifica se já existe
   execFile('netsh', ['advfirewall', 'firewall', 'show', 'rule', `name=${ruleName}`], (err) => {
-    if (!err) return; // regra já existe
-    // Cria silenciosamente (sem prompt UAC — funciona se o processo já tem privilégios)
+    if (!err) return; 
     execFile('netsh', [
       'advfirewall', 'firewall', 'add', 'rule',
       `name=${ruleName}`,
@@ -169,14 +168,12 @@ app.on('ready', () => {
     }
   });
 
-  // Retransmite comandos do Controle de Produção para a janela do Painel Detalhado
   ipcMain.on('dashboard-command', (_event, payload: unknown) => {
     if (productionWindow && !productionWindow.isDestroyed()) {
       productionWindow.webContents.send('dashboard-command', payload);
     }
   });
 
-  // Retransmite comandos para a janela do Painel Geral
   ipcMain.on('dashboard-geral-command', (_event, payload: unknown) => {
     if (productionWindowGeral && !productionWindowGeral.isDestroyed()) {
       productionWindowGeral.webContents.send('dashboard-geral-command', payload);
