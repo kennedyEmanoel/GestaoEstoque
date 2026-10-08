@@ -1,3 +1,37 @@
+export interface DashboardFilters {
+  model?: string;
+  dateFrom?: number;
+  dateTo?: number;
+}
+
+export interface BoxCompositionRecord {
+  compositionId: number;
+  sourceBoxId:   string;
+  newBoxId:      string;
+  amountTaken:   number;
+  createdAt:     Date | number;
+  operator:      string | null;
+}
+
+export interface BoxLineage {
+  boxId:        string;
+  ascendentes:  Array<BoxCompositionRecord & { sourceModel: string | null; sourceStep: string | null; sourceAmount: number | null }>;
+  descendentes: Array<BoxCompositionRecord & { destModel:   string | null; destStep:   string | null; destAmount:   number | null }>;
+}
+
+export interface ExpedicaoInput {
+  boxId: string;
+  operator: string;
+  filialDestino: string;
+  description?: string;
+}
+
+export interface ConsumirBdjInput {
+  bdjId: string;
+  caixaDestinoId: string;
+  operator: string;
+}
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;

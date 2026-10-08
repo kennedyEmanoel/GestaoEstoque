@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
-import Settings from './pages/Settings';
 import Producao from './pages/Producao';
 import ProducaoDashboard from './pages/Producao/Dashboard';
 import DashboardGeral from './pages/Producao/DashboardGeral';
@@ -39,20 +38,26 @@ const App = () => {
     <div style={{ position: 'relative', height: '100vh', width: '100vw', overflow: 'hidden' }}>
 
       {sidebarAberta && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          zIndex: 50,
-          height: '100vh',
-          boxShadow: '10px 0 15px rgba(0,0,0,0.1)'
-        }}>
-          <Sidebar
-            abaAtiva={abaAtiva}
-            setAbaAtiva={setAbaAtiva}
-            setSidebarAberta={setSidebarAberta}
+        <>
+          <div
+            onClick={() => setSidebarAberta(false)}
+            style={{ position: 'absolute', inset: 0, zIndex: 40 }}
           />
-        </div>
+          <div style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            zIndex: 50,
+            height: '100vh',
+            boxShadow: '10px 0 15px rgba(0,0,0,0.1)'
+          }}>
+            <Sidebar
+              abaAtiva={abaAtiva}
+              setAbaAtiva={setAbaAtiva}
+              setSidebarAberta={setSidebarAberta}
+            />
+          </div>
+        </>
       )}
 
       <main style={{
@@ -72,7 +77,6 @@ const App = () => {
         />
 
         <div style={{ flex: 1, minHeight: 0, width: '100%' }}>
-          {abaAtiva === 'configuracoes' && <Settings />}
           {abaAtiva === 'producao'               && <Producao />}
           {abaAtiva === 'producao-dashboard'         && <ProducaoDashboard />}
           {abaAtiva === 'producao-dashboard-geral'   && <DashboardGeral />}

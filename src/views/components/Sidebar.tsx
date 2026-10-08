@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 interface SidebarProps {
   abaAtiva: string;
   setAbaAtiva: (aba: string) => void;
@@ -27,7 +29,21 @@ const NAV_ITEMS = [
   },
 ];
 
+const PAINEL_OPCOES = [
+  { id: 'detalhado', label: 'Painel Detalhado' },
+  { id: 'geral', label: 'Painel Geral' },
+] as const;
+
 const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
+  const [painelAberto, setPainelAberto] = useState(false);
+
+  const abrirPainel = (tipo: 'detalhado' | 'geral') => {
+    if (tipo === 'detalhado') window.api.openProductionWindow();
+    else window.api.openProductionWindowGeral();
+    setPainelAberto(false);
+    setSidebarAberta(false);
+  };
+
   return (
     <aside className="w-56 h-full bg-white border-r border-zinc-200 flex flex-col">
 
@@ -55,29 +71,49 @@ const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
       <nav className="flex-1 px-3 py-4 flex flex-col gap-1">
         {NAV_ITEMS.map((item) => {
           const isActive = abaAtiva === item.id;
+          const isStandalone = STANDALONE_IDS.has(item.id);
           return (
-            <button
-              key={item.id}
-              onClick={() => {
-                if (STANDALONE_IDS.has(item.id)) {
-                  window.api.openProductionWindow();
-                  setSidebarAberta(false);
-                } else {
-                  setAbaAtiva(item.id);
-                  setSidebarAberta(false);
-                }
-              }}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
-                isActive && !STANDALONE_IDS.has(item.id)
-                  ? 'bg-blue-50 text-blue-700 font-semibold'
-                  : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
-              }`}
-            >
-              <span className={isActive && !STANDALONE_IDS.has(item.id) ? 'text-blue-600' : 'text-zinc-400'}>
-                {item.icon}
-              </span>
-              {item.label}
-            </button>
+            <div key={item.id} className="flex flex-col gap-1">
+              <button
+                onClick={() => {
+                  if (isStandalone) {
+                    setPainelAberto((v) => !v);
+                  } else {
+                    setAbaAtiva(item.id);
+                    setSidebarAberta(false);
+                  }
+                }}
+                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${
+                  isActive && !isStandalone
+                    ? 'bg-blue-50 text-blue-700 font-semibold'
+                    : 'text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50'
+                }`}
+              >
+                <span className={isActive && !isStandalone ? 'text-blue-600' : 'text-zinc-400'}>
+                  {item.icon}
+                </span>
+                <span className="flex-1">{item.label}</span>
+                {isStandalone && (
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor"
+                    className={`w-3.5 h-3.5 transition-transform ${painelAberto ? 'rotate-180' : ''}`}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                  </svg>
+                )}
+              </button>
+              {isStandalone && painelAberto && (
+                <div className="ml-7 flex flex-col gap-1 border-l border-zinc-200 pl-2">
+                  {PAINEL_OPCOES.map((op) => (
+                    <button
+                      key={op.id}
+                      onClick={() => abrirPainel(op.id)}
+                      className="w-full px-3 py-2 rounded-lg text-xs font-medium text-left text-zinc-500 hover:text-zinc-800 hover:bg-zinc-50 transition-colors"
+                    >
+                      {op.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           );
         })}
       </nav>
