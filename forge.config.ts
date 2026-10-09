@@ -26,7 +26,7 @@ const config: ForgeConfig = {
     asar: {
       unpack: '**/*.node',
     },
-    name: 'Producao',
+    name: 'Produção',
     executableName: 'Producao',
     icon: './assets/icon',
   },
