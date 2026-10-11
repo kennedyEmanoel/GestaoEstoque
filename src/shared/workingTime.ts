@@ -23,27 +23,25 @@ interface Shift {
 }
 
 const BREAKS: Break[] = [
-  { start: [9, 30],  end: [9, 55]  }, // café   25 min
-  { start: [12, 0],  end: [13, 0]  }, // almoço 60 min
+  { start: [9, 30],  end: [9, 55]  }, 
+  { start: [12, 0],  end: [13, 0]  }, 
 ];
 
 const SHIFT_DEFAULT: Shift = { start: [7, 12], end: [17, 12], breaks: BREAKS };
 const SHIFT_FRIDAY:  Shift = { start: [7, 12], end: [16, 12], breaks: BREAKS };
 
 function getShift(dow: number): Shift | null {
-  if (dow === 0 || dow === 6) return null;  // domingo, sábado
-  if (dow === 5) return SHIFT_FRIDAY;       // sexta
-  return SHIFT_DEFAULT;                     // seg–qui
+  if (dow === 0 || dow === 6) return null;  
+  if (dow === 5) return SHIFT_FRIDAY;       
+  return SHIFT_DEFAULT;                     
 }
 
-/** Converte [hora, minuto] em ms absolutos dentro de um Date (respeita timezone local). */
 function toAbsMs(dayDate: Date, h: number, m: number): number {
   const d = new Date(dayDate);
   d.setHours(h, m, 0, 0);
   return d.getTime();
 }
 
-/** Milissegundos de trabalho líquido em um único dia calendário. */
 function workingMsInDay(dayDate: Date, periodStart: number, periodEnd: number): number {
   const dow   = dayDate.getDay();
   const shift = getShift(dow);
@@ -52,12 +50,10 @@ function workingMsInDay(dayDate: Date, periodStart: number, periodEnd: number): 
   const shiftStart = toAbsMs(dayDate, shift.start[0], shift.start[1]);
   const shiftEnd   = toAbsMs(dayDate, shift.end[0],   shift.end[1]);
 
-  // Sobreposição do período com o expediente
   const overlapStart = Math.max(periodStart, shiftStart);
   const overlapEnd   = Math.min(periodEnd,   shiftEnd);
   if (overlapStart >= overlapEnd) return 0;
 
-  // Desconta cada intervalo que intersecta o overlap
   let breakMs = 0;
   for (const br of shift.breaks) {
     const bStart = toAbsMs(dayDate, br.start[0], br.start[1]);
@@ -70,17 +66,13 @@ function workingMsInDay(dayDate: Date, periodStart: number, periodEnd: number): 
   return overlapEnd - overlapStart - breakMs;
 }
 
-/**
- * Retorna segundos de trabalho líquido entre dois timestamps (ms),
- * ignorando madrugadas, fins de semana e intervalos obrigatórios.
- */
 export function calcWorkingSeconds(startMs: number, endMs: number): number {
   if (endMs <= startMs) return 0;
 
   let totalMs = 0;
 
   const cursor = new Date(startMs);
-  cursor.setHours(0, 0, 0, 0); // início do primeiro dia
+  cursor.setHours(0, 0, 0, 0); 
 
   const lastDay = new Date(endMs);
   lastDay.setHours(23, 59, 59, 999);

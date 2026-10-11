@@ -47,7 +47,6 @@ const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
   return (
     <aside className="w-56 h-full bg-white border-r border-zinc-200 flex flex-col">
 
-
       <div className="px-5 py-5 border-b border-zinc-100 flex items-center justify-between">
         <div className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center flex-shrink-0">
@@ -55,7 +54,7 @@ const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
               <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
             </svg>
           </div>
-          <span className="text-sm font-bold text-zinc-900 tracking-tight">GestãoEstoque</span>
+          <span className="text-sm font-bold text-zinc-900 tracking-tight">Produção</span>
         </div>
         <button
           onClick={() => setSidebarAberta(false)}
@@ -118,7 +117,6 @@ const Sidebar = ({ abaAtiva, setAbaAtiva, setSidebarAberta }: SidebarProps) => {
         })}
       </nav>
 
-      {/* Rodapé */}
       <div className="px-4 py-4 border-t border-zinc-100">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white flex-shrink-0">

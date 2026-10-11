@@ -180,6 +180,7 @@ declare global {
       onDashboardGeralCommand:    (cb: (payload: DashboardCommand) => void) => void;
       offDashboardGeralCommand:   () => void;
       getServerUrl:               () => Promise<string | null>;
+      openServerUrl:              () => void;
     };
   }
 }

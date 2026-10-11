@@ -1,6 +1,6 @@
 {
   "name": "Gestão de Produção",
-  "productName": "Gestão de Produção",
+  "productName": "Gestão de Manufatura",
   "version": "1.4.1",
   "description": "Apontamento de Metas",
   "main": ".vite/build/main.js",

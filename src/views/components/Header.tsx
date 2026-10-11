@@ -9,18 +9,14 @@ interface HeaderProps {
 
 const PAGE_TITLES: Record<string, { title: string; description: string }> = {
   dashboard:     { title: 'Painel de Controle', description: 'Indicadores e métricas de produção' },
-  movimentacoes: { title: 'Movimentação de Caixas', description: 'Consulta e fluxo de volumes' },
-  historico:     { title: 'Histórico',          description: 'Registro de operações realizadas' },
-  configuracoes: { title: 'Configurações',      description: 'Parâmetros e preferências do sistema' },
 };
 
 const Header = ({ abaAtiva, sidebarAberta, setSidebarAberta, serverUrl }: HeaderProps) => {
-  const page = PAGE_TITLES[abaAtiva] ?? { title: 'Sistema', description: '' };
+  const page = PAGE_TITLES[abaAtiva] ?? { title: 'Controle de Produção', description: '' };
 
   return (
     <header className="h-14 bg-white border-b border-zinc-200 flex items-center justify-between px-6 flex-shrink-0">
 
-      {/* Esquerda */}
       <div className="flex items-center gap-4">
         {!sidebarAberta && (
           <button
@@ -42,13 +38,20 @@ const Header = ({ abaAtiva, sidebarAberta, setSidebarAberta, serverUrl }: Header
         </div>
       </div>
 
-      {/* Direita — URL do servidor web */}
       {serverUrl && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', lineHeight: 1.3 }}>
           <span style={{ fontSize: 9, fontWeight: 700, color: '#94a3b8', letterSpacing: 1 }}>ACESSO PELA REDE</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: '#2563eb', fontFamily: 'monospace', letterSpacing: 0.3 }}>
+          <a
+            href={serverUrl}
+            onClick={(e) => {
+              e.preventDefault();
+              window.api.openServerUrl();
+            }}
+            title="Abrir no navegador"
+            style={{ fontSize: 13, fontWeight: 700, color: '#2563eb', fontFamily: 'monospace', letterSpacing: 0.3, textDecoration: 'underline', cursor: 'pointer' }}
+          >
             {serverUrl}
-          </span>
+          </a>
         </div>
       )}
 

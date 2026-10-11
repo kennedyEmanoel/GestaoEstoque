@@ -4,7 +4,7 @@ O sistema foi projetado para modernizar completamente a forma como o chão de f�
 
 ### 🎯 Principais Funcionalidades
 
-- 📦 **Gestão de Estoque e Rastreabilidade Total:** Controle ponta a ponta das caixas de manufatura por todas as etapas (como Montagem, Soldagem e Revisão). O sistema gera um histórico detalhado de auditoria de cada operação.
+- 📦 **(REMOVIDO) Gestão de Estoque e Rastreabilidade Total:** Controle ponta a ponta das caixas de manufatura por todas as etapas (como Montagem, Soldagem e Revisão). O sistema gera um histórico detalhado de auditoria de cada operação.
 
 - ⏱️ **Controle de Produção Hora a Hora:** Monitoramento contínuo das metas e do volume processado, com cálculos de saldo atualizados em tempo real a cada bloco de horário.
 

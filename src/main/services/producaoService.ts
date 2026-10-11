@@ -10,8 +10,6 @@ import type {
   GetFichaInput,
 } from '../../shared/types';
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function buildFichaCompleta(fichaId: number): FichaDiariaCompleta {
   const ficha = sqlite
     .prepare<number, any>(`SELECT * FROM producao_ficha_diaria WHERE id = ?`)

@@ -42,4 +42,5 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.removeAllListeners('dashboard-geral-command');
   },
   getServerUrl: () => ipcRenderer.invoke('get-server-url'),
+  openServerUrl: () => ipcRenderer.send('open-server-url'),
 });

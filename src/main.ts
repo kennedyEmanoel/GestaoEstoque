@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import started from 'electron-squirrel-startup';
@@ -197,6 +197,11 @@ app.on('ready', () => {
     });
 
   ipcMain.handle('get-server-url', () => serverUrl);
+
+  // Abre no navegador padrão apenas o endereço do servidor interno
+  ipcMain.on('open-server-url', () => {
+    if (serverUrl) shell.openExternal(serverUrl);
+  });
 });
 
 app.on('window-all-closed', () => {
