@@ -3,6 +3,7 @@ import Sidebar from './components/Sidebar';
 import Producao from './pages/Producao';
 import ProducaoDashboard from './pages/Producao/Dashboard';
 import DashboardGeral from './pages/Producao/DashboardGeral';
+import Cadastros from './pages/Cadastros';
 import Header from './components/Header';
 
 const standaloneParam = new URLSearchParams(window.location.search).get('standalone');
@@ -13,7 +14,7 @@ const App = () => {
   const [serverUrl, setServerUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    (window.api as any).getServerUrl().then((url: string | null) => {
+    window.api.getServerUrl().then((url: string | null) => {
       if (url) setServerUrl(url);
     });
   }, []);
@@ -80,6 +81,7 @@ const App = () => {
           {abaAtiva === 'producao'               && <Producao />}
           {abaAtiva === 'producao-dashboard'         && <ProducaoDashboard />}
           {abaAtiva === 'producao-dashboard-geral'   && <DashboardGeral />}
+          {abaAtiva === 'cadastros'                  && <Cadastros />}
         </div>
 
       </main>

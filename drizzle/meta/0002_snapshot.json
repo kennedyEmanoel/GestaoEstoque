@@ -1,0 +1,622 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "f265734a-02f9-42b1-83eb-556377928fe5",
+  "prevId": "1b6a0c0e-b19e-4cbe-874b-49d4c2621311",
+  "tables": {
+    "operadores": {
+      "name": "operadores",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "ux_operadores_nome": {
+          "name": "ux_operadores_nome",
+          "columns": [
+            "lower(\"nome\")"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "produtos": {
+      "name": "produtos",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "versao": {
+          "name": "versao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "''"
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "ux_produtos_nome_versao": {
+          "name": "ux_produtos_nome_versao",
+          "columns": [
+            "lower(\"nome\")",
+            "lower(\"versao\")"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "etapa_variacoes": {
+      "name": "etapa_variacoes",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "etapa_id": {
+          "name": "etapa_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "idx_variacoes_etapa": {
+          "name": "idx_variacoes_etapa",
+          "columns": [
+            "etapa_id"
+          ],
+          "isUnique": false
+        },
+        "ux_variacoes_etapa_nome": {
+          "name": "ux_variacoes_etapa_nome",
+          "columns": [
+            "etapa_id",
+            "lower(\"nome\")"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "etapa_variacoes_etapa_id_etapas_id_fk": {
+          "name": "etapa_variacoes_etapa_id_etapas_id_fk",
+          "tableFrom": "etapa_variacoes",
+          "tableTo": "etapas",
+          "columnsFrom": [
+            "etapa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "etapas": {
+      "name": "etapas",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "nome": {
+          "name": "nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "descricao": {
+          "name": "descricao",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "ativo": {
+          "name": "ativo",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        },
+        "atualizado_em": {
+          "name": "atualizado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(unixepoch() * 1000)"
+        }
+      },
+      "indexes": {
+        "ux_etapas_nome": {
+          "name": "ux_etapas_nome",
+          "columns": [
+            "lower(\"nome\")"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "producao_ficha_diaria": {
+      "name": "producao_ficha_diaria",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "data": {
+          "name": "data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "produto_id": {
+          "name": "produto_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "etapa_id": {
+          "name": "etapa_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "variacao_id": {
+          "name": "variacao_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "meta_hora_padrao": {
+          "name": "meta_hora_padrao",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 40
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_ficha_data_etapa": {
+          "name": "idx_ficha_data_etapa",
+          "columns": [
+            "data",
+            "etapa_id"
+          ],
+          "isUnique": false
+        },
+        "ux_ficha_sem_variacao": {
+          "name": "ux_ficha_sem_variacao",
+          "columns": [
+            "data",
+            "produto_id",
+            "etapa_id"
+          ],
+          "isUnique": true,
+          "where": "\"producao_ficha_diaria\".\"variacao_id\" IS NULL"
+        },
+        "ux_ficha_com_variacao": {
+          "name": "ux_ficha_com_variacao",
+          "columns": [
+            "data",
+            "produto_id",
+            "etapa_id",
+            "variacao_id"
+          ],
+          "isUnique": true,
+          "where": "\"producao_ficha_diaria\".\"variacao_id\" IS NOT NULL"
+        }
+      },
+      "foreignKeys": {
+        "producao_ficha_diaria_produto_id_produtos_id_fk": {
+          "name": "producao_ficha_diaria_produto_id_produtos_id_fk",
+          "tableFrom": "producao_ficha_diaria",
+          "tableTo": "produtos",
+          "columnsFrom": [
+            "produto_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "producao_ficha_diaria_etapa_id_etapas_id_fk": {
+          "name": "producao_ficha_diaria_etapa_id_etapas_id_fk",
+          "tableFrom": "producao_ficha_diaria",
+          "tableTo": "etapas",
+          "columnsFrom": [
+            "etapa_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        },
+        "producao_ficha_diaria_variacao_id_etapa_variacoes_id_fk": {
+          "name": "producao_ficha_diaria_variacao_id_etapa_variacoes_id_fk",
+          "tableFrom": "producao_ficha_diaria",
+          "tableTo": "etapa_variacoes",
+          "columnsFrom": [
+            "variacao_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "producao_operador_diario": {
+      "name": "producao_operador_diario",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "ficha_id": {
+          "name": "ficha_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operador_id": {
+          "name": "operador_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ordem": {
+          "name": "ordem",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "idx_operador_ficha": {
+          "name": "idx_operador_ficha",
+          "columns": [
+            "ficha_id"
+          ],
+          "isUnique": false
+        },
+        "idx_operador_diario_operador": {
+          "name": "idx_operador_diario_operador",
+          "columns": [
+            "operador_id"
+          ],
+          "isUnique": false
+        },
+        "producao_operador_diario_ficha_id_operador_id_unique": {
+          "name": "producao_operador_diario_ficha_id_operador_id_unique",
+          "columns": [
+            "ficha_id",
+            "operador_id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "producao_operador_diario_ficha_id_producao_ficha_diaria_id_fk": {
+          "name": "producao_operador_diario_ficha_id_producao_ficha_diaria_id_fk",
+          "tableFrom": "producao_operador_diario",
+          "tableTo": "producao_ficha_diaria",
+          "columnsFrom": [
+            "ficha_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "producao_operador_diario_operador_id_operadores_id_fk": {
+          "name": "producao_operador_diario_operador_id_operadores_id_fk",
+          "tableFrom": "producao_operador_diario",
+          "tableTo": "operadores",
+          "columnsFrom": [
+            "operador_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "restrict",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "producao_registro_horario": {
+      "name": "producao_registro_horario",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "operador_diario_id": {
+          "name": "operador_diario_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "horario_bloco": {
+          "name": "horario_bloco",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "meta": {
+          "name": "meta",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "realizado": {
+          "name": "realizado",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "idx_registro_op": {
+          "name": "idx_registro_op",
+          "columns": [
+            "operador_diario_id"
+          ],
+          "isUnique": false
+        },
+        "producao_registro_horario_operador_diario_id_horario_bloco_unique": {
+          "name": "producao_registro_horario_operador_diario_id_horario_bloco_unique",
+          "columns": [
+            "operador_diario_id",
+            "horario_bloco"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "producao_registro_horario_operador_diario_id_producao_operador_diario_id_fk": {
+          "name": "producao_registro_horario_operador_diario_id_producao_operador_diario_id_fk",
+          "tableFrom": "producao_registro_horario",
+          "tableTo": "producao_operador_diario",
+          "columnsFrom": [
+            "operador_diario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {
+      "ux_operadores_nome": {
+        "columns": {
+          "lower(\"nome\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "ux_produtos_nome_versao": {
+        "columns": {
+          "lower(\"nome\")": {
+            "isExpression": true
+          },
+          "lower(\"versao\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "ux_variacoes_etapa_nome": {
+        "columns": {
+          "lower(\"nome\")": {
+            "isExpression": true
+          }
+        }
+      },
+      "ux_etapas_nome": {
+        "columns": {
+          "lower(\"nome\")": {
+            "isExpression": true
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,9 +1,12 @@
-import { app, BrowserWindow, Menu, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, Menu, dialog, ipcMain, shell } from 'electron';
 import path from 'node:path';
 import { execFile } from 'node:child_process';
 import started from 'electron-squirrel-startup';
 import { updateElectronApp } from 'update-electron-app';
 import { setupProducaoControllers } from './main/controllers/producaoController';
+import { setupCadastrosControllers } from './main/controllers/cadastrosController';
+import { db, sqlite, pastaMigracoes, pastaBackups } from './main/models/db';
+import { migrarBanco } from './main/models/migrador';
 import { startInternalServer } from './main/server/internalServer';
 
 function ensureFirewallRule(port: number) {
@@ -145,7 +148,20 @@ app.on('ready', () => {
     updateElectronApp({ repo: 'kennedyEmanoel/GestaoEstoque' });
   }
 
+  // Cria/atualiza as tabelas antes de qualquer consulta. Se falhar, o app não abre com o banco pela metade.
+  try {
+    const { aplicadas, backup } = migrarBanco(db, sqlite, { pastaMigracoes: pastaMigracoes(), pastaBackups });
+    if (aplicadas > 0) {
+      console.log(`Banco atualizado: ${aplicadas} migração(ões) aplicada(s).${backup ? ` Cópia de segurança em ${backup}` : ''}`);
+    }
+  } catch (err) {
+    console.error('Falha ao atualizar o banco de dados:', err);
+    dialog.showErrorBox('Falha ao atualizar o banco de dados', err instanceof Error ? err.message : String(err));
+    app.exit(1);
+    return;
+  }
 
+  setupCadastrosControllers();
   setupProducaoControllers();
 
   ipcMain.on('open-production-window', () => {

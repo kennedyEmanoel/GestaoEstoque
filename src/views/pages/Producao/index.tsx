@@ -1,19 +1,24 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type {
+  CartaoDoDia,
+  DiaComRegistro,
+  Etapa,
   FichaDiariaCompleta,
+  ImpactoExclusao,
+  Operador,
   OperadorDiario,
+  Produto,
   RegistroHorario,
-  EtapaProducao,
 } from '../../../shared/types';
+import { rotuloEtapa, rotuloProduto } from '../../../shared/rotulos';
+import { chamar, mensagemDeErro } from '../../lib/api';
 import SeletorDashboard from './SeletorDashboard';
+import ExistentesPanel from './ExistentesPanel';
+import Modal from '../../components/ui/Modal';
+import { btnPerigo, btnSecundario } from '../../components/ui/estilos';
+import { linhasDoImpacto } from '../../lib/impacto';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
-
-const ETAPAS: EtapaProducao[] = ['Montagem', 'Soldagem', 'Revisão', 'Firmware', 'IMEI'];
-
-function labelEtapa(e: EtapaProducao): string {
-  return e === 'Revisão' ? 'Revisão' : e;
-}
 
 const BLOCOS_HORARIOS = [
   '07:12 - 08:00',
@@ -39,9 +44,15 @@ type Draft = Record<CellKey, { meta: string; realizado: string }>;
 
 interface FiltroState {
   data: string;
-  etapa: EtapaProducao;
-  produto: string;
+  produtoId: number | null;
+  etapaId: number | null;
+  variacaoId: number | null;
   metaHoraPadrao: number;
+}
+
+/** Ao escolher uma etapa que tem variações, já deixa a primeira selecionada. */
+function variacaoPadrao(etapa: Etapa | null | undefined): number | null {
+  return etapa?.variacoes[0]?.id ?? null;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -109,12 +120,17 @@ export default function Producao() {
   const today = new Date().toISOString().slice(0, 10);
 
   const [filtro, setFiltro] = useState<FiltroState>({
-    data: today, etapa: 'Soldagem', produto: '4G SIMCOM', metaHoraPadrao: 40,
+    data: today, produtoId: null, etapaId: null, variacaoId: null, metaHoraPadrao: 40,
   });
+
+  // ── Cadastros que alimentam os seletores ───────────────────────────────────
+  const [produtos, setProdutos]       = useState<Produto[]>([]);
+  const [etapas, setEtapas]           = useState<Etapa[]>([]);
+  const [operadores, setOperadores]   = useState<Operador[]>([]);
 
   // ── Estado dos controles do Dashboard ──────────────────────────────────────
   const [dashData, setDashData]         = useState(today);
-  const [dashProduto, setDashProduto]   = useState('');
+  const [dashProdutoId, setDashProdutoId] = useState<number | null>(null);
   const [dashFaixa, setDashFaixa]       = useState<string>(faixaAtualDashboard());
   const [seletorAberto, setSeletorAberto] = useState(false);
 
@@ -122,8 +138,17 @@ export default function Producao() {
   const [ficha, setFicha]       = useState<FichaDiariaCompleta | null>(null);
   const [loading, setLoading]   = useState(false);
   const [erro, setErro]         = useState<string | null>(null);
-  const [novoOp, setNovoOp]     = useState('');
+  const [novoOpId, setNovoOpId] = useState<number | null>(null);
   const [addingOp, setAddingOp] = useState(false);
+
+  // ── O que já existe (aparece quando nenhum cartão está aberto) ─────────────
+  const [dias, setDias]                 = useState<DiaComRegistro[]>([]);
+  const [cartoes, setCartoes]           = useState<CartaoDoDia[]>([]);
+  const [carregandoLista, setCarregandoLista] = useState(false);
+
+  // Aviso de exclusão do cartão aberto (com o que será apagado junto)
+  const [exclusaoCartao, setExclusaoCartao] = useState<ImpactoExclusao | null>(null);
+  const [excluindoCartao, setExcluindoCartao] = useState(false);
 
   // Rascunho: valores que o usuário digitou mas ainda não salvou
   const [draft, setDraft] = useState<Draft>({});
@@ -138,50 +163,149 @@ export default function Producao() {
   fichaRef.current = ficha;
   draftRef.current = draft;
 
+  // ── Cadastros (carregados ao abrir a tela e escolhidos os valores iniciais) ──
+
+  useEffect(() => {
+    let ativo = true;
+    (async () => {
+      try {
+        const [listaProdutos, listaEtapas, listaOperadores] = await Promise.all([
+          chamar(window.api.produtos.listar()),
+          chamar(window.api.etapas.listar()),
+          chamar(window.api.operadores.listar()),
+        ]);
+        if (!ativo) return;
+        setProdutos(listaProdutos);
+        setEtapas(listaEtapas);
+        setOperadores(listaOperadores);
+        setFiltro(f => {
+          const etapa = listaEtapas.find(e => e.id === f.etapaId) ?? listaEtapas[0] ?? null;
+          return {
+            ...f,
+            produtoId: listaProdutos.find(p => p.id === f.produtoId)?.id ?? listaProdutos[0]?.id ?? null,
+            etapaId: etapa?.id ?? null,
+            variacaoId: etapa?.variacoes.some(v => v.id === f.variacaoId) ? f.variacaoId : variacaoPadrao(etapa),
+          };
+        });
+      } catch (e) {
+        if (ativo) setErro(mensagemDeErro(e));
+      }
+    })();
+    return () => { ativo = false; };
+  }, []);
+
+  // Recarrega a lista sempre que a data muda ou o usuário volta de um cartão aberto (totais atualizados)
+  const cartaoAberto = ficha !== null;
+  useEffect(() => {
+    if (cartaoAberto) return;
+    let ativo = true;
+    setCarregandoLista(true);
+    (async () => {
+      try {
+        const [listaDias, listaCartoes] = await Promise.all([
+          chamar(window.api.listarDiasComRegistro()),
+          chamar(window.api.listarCartoesDoDia(filtro.data)),
+        ]);
+        if (!ativo) return;
+        setDias(listaDias);
+        setCartoes(listaCartoes);
+      } catch (e) {
+        if (ativo) setErro(mensagemDeErro(e));
+      } finally {
+        if (ativo) setCarregandoLista(false);
+      }
+    })();
+    return () => { ativo = false; };
+  }, [filtro.data, cartaoAberto]);
+
+  const pedirExclusaoCartao = async () => {
+    if (!ficha) return;
+    try { setExclusaoCartao(await chamar(window.api.impactoDoCartao(ficha.id))); }
+    catch (e) { setErro(mensagemDeErro(e)); }
+  };
+
+  const confirmarExclusaoCartao = async () => {
+    if (!ficha) return;
+    setExcluindoCartao(true);
+    try {
+      await chamar(window.api.removerCartao(ficha.id));
+      setFicha(null); // volta para a lista, que recarrega sozinha
+    } catch (e) { setErro(mensagemDeErro(e)); }
+    finally { setExcluindoCartao(false); setExclusaoCartao(null); }
+  };
+
+  /** Abre um cartão que já existe e ajusta os filtros para ele. */
+  const abrirCartao = async (fichaId: number) => {
+    setErro(null); setLoading(true); setDraft({});
+    try {
+      const aberta = await chamar(window.api.getFichaPorId(fichaId));
+      setFiltro(f => ({
+        ...f, data: aberta.data, produtoId: aberta.produtoId,
+        etapaId: aberta.etapaId, variacaoId: aberta.variacaoId,
+      }));
+      setFicha(aberta);
+    } catch (e) { setErro(mensagemDeErro(e)); }
+    finally { setLoading(false); }
+  };
+
+  const etapaDoFiltro = etapas.find(e => e.id === filtro.etapaId) ?? null;
+
+  const handleEtapa = (etapaId: number) => {
+    const etapa = etapas.find(e => e.id === etapaId);
+    setFiltro(f => ({ ...f, etapaId, variacaoId: variacaoPadrao(etapa) }));
+  };
+
   // ── Comandos para o Dashboard ───────────────────────────────────────────────
 
   const enviarRefresh = () => {
-    (window.api as any).sendDashboardCommand({ type: 'refresh', data: dashData, produto: dashProduto, faixa: dashFaixa });
+    window.api.sendDashboardCommand({ type: 'refresh', data: dashData, produtoId: dashProdutoId, faixa: dashFaixa });
   };
 
   const enviarRefreshGeral = () => {
-    (window.api as any).sendDashboardGeralCommand({ type: 'refresh', data: dashData, produto: dashProduto, faixa: dashFaixa });
+    window.api.sendDashboardGeralCommand({ type: 'refresh', data: dashData, produtoId: dashProdutoId, faixa: dashFaixa });
   };
 
   // ── Carregar / criar ────────────────────────────────────────────────────────
 
   const carregarFicha = useCallback(async (criar = false) => {
+    if (filtro.produtoId === null || filtro.etapaId === null) {
+      setErro('Selecione o produto e a etapa. Se a lista estiver vazia, cadastre-os em "Cadastros".');
+      return;
+    }
     setErro(null); setLoading(true); setDraft({});
     try {
+      const chave = {
+        data: filtro.data, produtoId: filtro.produtoId,
+        etapaId: filtro.etapaId, variacaoId: filtro.variacaoId,
+      };
       const res = criar
-        ? await window.api.getOrCreateFicha({
-            data: filtro.data, produto: filtro.produto,
-            etapa: filtro.etapa, metaHoraPadrao: filtro.metaHoraPadrao,
-          })
-        : await window.api.getFichaCompleta({
-            data: filtro.data, produto: filtro.produto, etapa: filtro.etapa,
-          });
+        ? await window.api.getOrCreateFicha({ ...chave, metaHoraPadrao: filtro.metaHoraPadrao })
+        : await window.api.getFichaCompleta(chave);
       if (!res.success) throw new Error(res.error);
-      setFicha((res.data as FichaDiariaCompleta | null) ?? null);
-    } catch (e: any) { setErro(e.message ?? 'Erro'); }
+      setFicha(res.data ?? null);
+    } catch (e) { setErro(mensagemDeErro(e)); }
     finally { setLoading(false); }
   }, [filtro]);
 
   // ── Operadores ──────────────────────────────────────────────────────────────
 
+  // Só entram na lista de escolha os operadores ativos que ainda não estão nesta ficha
+  const operadoresDisponiveis = operadores.filter(
+    o => !ficha?.operadores.some(escalado => escalado.operadorId === o.id),
+  );
+  const operadorEscolhido = operadoresDisponiveis.find(o => o.id === novoOpId) ?? operadoresDisponiveis[0] ?? null;
+
   const handleAddOp = async () => {
-    if (!ficha || !novoOp.trim()) return;
+    if (!ficha || !operadorEscolhido) return;
     setAddingOp(true);
     try {
-      const res = await window.api.addOperador({
-        fichaId: ficha.id, operadorNome: novoOp.trim().toUpperCase(),
-      });
-      if (!res.success) { setErro(res.error ?? 'Erro'); return; }
+      const res = await window.api.addOperador({ fichaId: ficha.id, operadorId: operadorEscolhido.id });
+      if (!res.success || !res.data) { setErro(res.error ?? 'Erro'); return; }
       setFicha({
         ...ficha,
-        operadores: [...ficha.operadores, { ...(res.data as any), registros: [] }],
+        operadores: [...ficha.operadores, { ...res.data, registros: [] }],
       });
-      setNovoOp('');
+      setNovoOpId(null);
     } finally { setAddingOp(false); }
   };
 
@@ -349,7 +473,14 @@ export default function Producao() {
           {/* Produto */}
           <div>
             <div style={{ color: '#64748b', fontSize: 9, fontWeight: 700, letterSpacing: 1, marginBottom: 2 }}>PRODUTO</div>
-            <input value={dashProduto} onChange={e => setDashProduto(e.target.value)} placeholder="Todos" style={{ ...inp, width: 110 }} />
+            <select
+              value={dashProdutoId ?? ''}
+              onChange={e => setDashProdutoId(e.target.value ? Number(e.target.value) : null)}
+              style={{ ...inp, minWidth: 130 }}
+            >
+              <option value="">Todos</option>
+              {produtos.map(p => <option key={p.id} value={p.id}>{rotuloProduto(p.nome, p.versao)}</option>)}
+            </select>
           </div>
 
           {/* Faixa de horário */}
@@ -394,7 +525,7 @@ export default function Producao() {
                 style={{ padding: '4px 10px', borderRadius: 3, border: 'none', background: '#059669', color: '#fff', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>
                 Atualizar
               </button>
-              <button onClick={() => (window.api as any).closeProductionWindowGeral()}
+              <button onClick={() => window.api.closeProductionWindowGeral()}
                 style={{ padding: '4px 10px', borderRadius: 3, border: '1px solid #059669', background: 'transparent', color: '#34d399', cursor: 'pointer', fontWeight: 700, fontSize: 11 }}>
                 Fechar
               </button>
@@ -410,7 +541,7 @@ export default function Producao() {
           onSelecionar={(tipo) => {
             setSeletorAberto(false);
             if (tipo === 'detalhado') window.api.openProductionWindow();
-            else (window.api as any).openProductionWindowGeral();
+            else window.api.openProductionWindowGeral();
           }}
           onFechar={() => setSeletorAberto(false)}
         />
@@ -421,12 +552,36 @@ export default function Producao() {
 
         {([
           { label: 'DATA',    node: <input type="date" value={filtro.data} onChange={e => setFiltro(f => ({ ...f, data: e.target.value }))} style={inp} /> },
-          { label: 'PRODUTO', node: <input value={filtro.produto} onChange={e => setFiltro(f => ({ ...f, produto: e.target.value }))} placeholder="Produto" style={{ ...inp, width: 110 }} /> },
-          { label: 'ETAPA',   node: (
-            <select value={filtro.etapa} onChange={e => setFiltro(f => ({ ...f, etapa: e.target.value as EtapaProducao }))} style={inp}>
-              {ETAPAS.map(e => <option key={e} value={e}>{labelEtapa(e)}</option>)}
+          { label: 'PRODUTO', node: (
+            <select
+              value={filtro.produtoId ?? ''}
+              onChange={e => setFiltro(f => ({ ...f, produtoId: e.target.value ? Number(e.target.value) : null }))}
+              style={{ ...inp, minWidth: 130 }}
+            >
+              {produtos.length === 0 && <option value="">Cadastre um produto</option>}
+              {produtos.map(p => <option key={p.id} value={p.id}>{rotuloProduto(p.nome, p.versao)}</option>)}
             </select>
           )},
+          { label: 'ETAPA',   node: (
+            <select
+              value={filtro.etapaId ?? ''}
+              onChange={e => handleEtapa(Number(e.target.value))}
+              style={inp}
+            >
+              {etapas.length === 0 && <option value="">Cadastre uma etapa</option>}
+              {etapas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}
+            </select>
+          )},
+          ...(etapaDoFiltro && etapaDoFiltro.variacoes.length > 0 ? [{ label: 'VARIAÇÃO', node: (
+            <select
+              value={filtro.variacaoId ?? ''}
+              onChange={e => setFiltro(f => ({ ...f, variacaoId: e.target.value ? Number(e.target.value) : null }))}
+              style={inp}
+            >
+              <option value="">— sem variação —</option>
+              {etapaDoFiltro.variacoes.map(v => <option key={v.id} value={v.id}>{v.nome}</option>)}
+            </select>
+          )}] : []),
           { label: 'META/H',  node: <input type="number" min={0} value={filtro.metaHoraPadrao} onChange={e => setFiltro(f => ({ ...f, metaHoraPadrao: parseInt(e.target.value) || 0 }))} style={{ ...inp, width: 52 }} /> },
         ] as const).map(({ label, node }) => (
           <div key={label}>
@@ -448,13 +603,17 @@ export default function Producao() {
               style={{ ...inp, width: 44, display: 'inline-block' }}
             />
             <span style={{ marginLeft: 8 }}>| + Operador:</span>
-            <input
-              value={novoOp} placeholder="Nome"
-              onChange={e => setNovoOp(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && handleAddOp()}
-              style={{ ...inp, width: 110 }}
-            />
-            <button style={btnStyle('#2563eb')} onClick={handleAddOp} disabled={addingOp || !novoOp.trim()}>
+            <select
+              value={operadorEscolhido?.id ?? ''}
+              onChange={e => setNovoOpId(Number(e.target.value))}
+              style={{ ...inp, width: 150 }}
+            >
+              {operadoresDisponiveis.length === 0 && (
+                <option value="">{operadores.length === 0 ? 'Cadastre operadores' : 'Todos já escalados'}</option>
+              )}
+              {operadoresDisponiveis.map(o => <option key={o.id} value={o.id}>{o.nome}</option>)}
+            </select>
+            <button style={btnStyle('#2563eb')} onClick={handleAddOp} disabled={addingOp || !operadorEscolhido}>
               Adicionar
             </button>
           </div>
@@ -470,9 +629,14 @@ export default function Producao() {
       )}
 
       {!ficha && !loading && (
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#94a3b8', fontSize: 13 }}>
-          Selecione os filtros e clique em "Abrir / Criar" para começar.
-        </div>
+        <ExistentesPanel
+          dataSelecionada={filtro.data}
+          dias={dias}
+          cartoes={cartoes}
+          carregando={carregandoLista}
+          onEscolherDia={(data) => setFiltro(f => ({ ...f, data }))}
+          onAbrir={abrirCartao}
+        />
       )}
 
       {/* ── Tabela ── */}
@@ -484,10 +648,22 @@ export default function Producao() {
             borderRadius: '5px 5px 0 0', marginBottom: -1,
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
-            <span style={{ fontWeight: 700, fontSize: 12, letterSpacing: 0.8 }}>
-              CONTROLE DE PRODUÇÃO — {labelEtapa(ficha.etapa).toUpperCase()} | {ficha.produto.toUpperCase()}
+            <button
+              onClick={() => setFicha(null)}
+              style={{ background: 'rgba(255,255,255,0.12)', border: 'none', color: '#fff', cursor: 'pointer', borderRadius: 3, padding: '2px 8px', fontSize: 11, fontWeight: 700, marginRight: 10 }}
+            >
+              ← Cartões do dia
+            </button>
+            <span style={{ fontWeight: 700, fontSize: 12, letterSpacing: 0.8, flex: 1 }}>
+              CONTROLE DE PRODUÇÃO — {rotuloEtapa(ficha.etapa, ficha.variacao).toUpperCase()} | {rotuloProduto(ficha.produto, ficha.produtoVersao).toUpperCase()}
             </span>
-            <span style={{ fontSize: 10, opacity: 0.6 }}>{ficha.data}</span>
+            <span style={{ fontSize: 10, opacity: 0.6, marginRight: 10 }}>{ficha.data}</span>
+            <button
+              onClick={pedirExclusaoCartao}
+              style={{ background: 'rgba(220,38,38,0.85)', border: 'none', color: '#fff', cursor: 'pointer', borderRadius: 3, padding: '2px 8px', fontSize: 11, fontWeight: 700 }}
+            >
+              Excluir cartão
+            </button>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -637,6 +813,31 @@ export default function Producao() {
             </table>
           </div>
         </div>
+      )}
+
+      {/* ── Aviso de exclusão do cartão ── */}
+      {ficha && exclusaoCartao && (
+        <Modal titulo="Excluir cartão" onFechar={() => setExclusaoCartao(null)}>
+          <div className="flex flex-col gap-4">
+            <p className="text-sm text-zinc-700">
+              Excluir o cartão <strong>{rotuloEtapa(ficha.etapa, ficha.variacao)} · {rotuloProduto(ficha.produto, ficha.produtoVersao)}</strong> de {ficha.data}?
+            </p>
+            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2.5 text-sm text-red-900">
+              <div className="font-semibold">⚠ Será apagado tudo isto, definitivamente:</div>
+              <ul className="mt-1 list-disc pl-5">
+                <li>o próprio cartão</li>
+                {linhasDoImpacto({ ...exclusaoCartao, cartoes: 0 }).map((linha) => <li key={linha}>{linha}</li>)}
+              </ul>
+              <div className="mt-2 text-xs text-red-700">Não há como desfazer. Operadores e produto continuam cadastrados.</div>
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className={btnSecundario} onClick={() => setExclusaoCartao(null)}>Cancelar</button>
+              <button type="button" className={btnPerigo} disabled={excluindoCartao} onClick={confirmarExclusaoCartao}>
+                {excluindoCartao ? 'Excluindo...' : 'Excluir cartão'}
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
     </div>
   );

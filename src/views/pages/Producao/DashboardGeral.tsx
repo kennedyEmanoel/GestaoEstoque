@@ -7,6 +7,7 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import type { DashboardPorEtapasData, EtapaResumo, DashboardCommand } from '../../../shared/types';
+import { corEtapa } from './cores';
 import AlertModal, { type AlertData } from './AlertModal';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
@@ -53,17 +54,7 @@ const CARROSSEL_INTERVALO_MS = 1 * 60 * 1000;
 
 // ─── Paleta ───────────────────────────────────────────────────────────────────
 
-const COR_ETAPA: Record<string, { bg: string; text: string; bar: string; accent: string }> = {
-  Montagem: { bg: '#1d4ed8', text: '#fff', bar: 'rgba(59,130,246,0.85)',  accent: '#93c5fd' },
-  Soldagem: { bg: '#15803d', text: '#fff', bar: 'rgba(34,197,94,0.85)',   accent: '#86efac' },
-  Revisão:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)', accent: '#d8b4fe' },
-  Revisao:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)', accent: '#d8b4fe' },
-  Firmware: { bg: '#b45309', text: '#fff', bar: 'rgba(245,158,11,0.85)', accent: '#fde68a' },
-  IMEI:     { bg: '#0e7490', text: '#fff', bar: 'rgba(6,182,212,0.85)',  accent: '#a5f3fc' },
-};
-const COR_DEFAULT = { bg: '#483751', text: '#fff', bar: 'rgba(107,114,128,0.85)', accent: '#e2e8f0' };
-
-function corEtapa(etapa: string) { return COR_ETAPA[etapa] ?? COR_DEFAULT; }
+// As cores por etapa/variação ficam em ./cores (compartilhadas com o painel detalhado).
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
@@ -83,7 +74,7 @@ function BadgeFaixa({ faixa }: { faixa: string }) {
 }
 
 function EtapaCard({ etapa, faixaDados }: { etapa: EtapaResumo; faixaDados: EtapaResumo | undefined }) {
-  const cor = corEtapa(etapa.etapa);
+  const cor = corEtapa(etapa);
 
   // Dados do dia inteiro (sidebar) vs faixa atual (destaque)
   const realizadoDia   = etapa.totalRealizado;
@@ -102,7 +93,7 @@ function EtapaCard({ etapa, faixaDados }: { etapa: EtapaResumo; faixaDados: Etap
 
   return (
     <div style={{ background: cor.bg, color: cor.text, borderRadius: 10, padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: 1.5 }}>{etapa.etapa.toUpperCase()}</div>
+      <div style={{ fontWeight: 800, fontSize: 16, letterSpacing: 1.5 }}>{etapa.rotulo.toUpperCase()}</div>
       {etapa.produto && (
         <div style={{ fontSize: 11, color: 'rgba(255,255,255,0.6)', fontWeight: 600 }}>{etapa.produto}</div>
       )}
@@ -128,12 +119,12 @@ function EtapaCard({ etapa, faixaDados }: { etapa: EtapaResumo; faixaDados: Etap
 
 function BarConsolidado({ etapas }: { etapas: EtapaResumo[] }) {
   const data = {
-    labels: etapas.map(e => e.etapa.toUpperCase()),
+    labels: etapas.map(e => e.rotulo.toUpperCase()),
     datasets: [
       {
         label: 'Realizado',
         data: etapas.map(e => e.totalRealizado),
-        backgroundColor: etapas.map(e => corEtapa(e.etapa).bar),
+        backgroundColor: etapas.map(e => corEtapa(e).bar),
         borderRadius: 6, barPercentage: 0.5,
       },
       {
@@ -160,10 +151,10 @@ function BarConsolidado({ etapas }: { etapas: EtapaResumo[] }) {
 function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
   const total = etapas.reduce((s, e) => s + e.totalRealizado, 0);
   const data = {
-    labels: etapas.map(e => e.etapa.toUpperCase()),
+    labels: etapas.map(e => e.rotulo.toUpperCase()),
     datasets: [{
       data: etapas.map(e => e.totalRealizado),
-      backgroundColor: etapas.map(e => corEtapa(e.etapa).bar),
+      backgroundColor: etapas.map(e => corEtapa(e).bar),
       borderWidth: 2, borderColor: '#f1f5f9',
     }],
   };
@@ -191,7 +182,7 @@ function DetalheEtapa({ etapa, faixaDados, faixaSelecionada }: {
   faixaDados: EtapaResumo | undefined;
   faixaSelecionada: string;
 }) {
-  const cor = corEtapa(etapa.etapa);
+  const cor = corEtapa(etapa);
 
   const realizadoFaixa = faixaDados?.totalRealizado ?? 0;
   const metaFaixa      = faixaDados?.totalMeta      ?? 0;
@@ -247,7 +238,7 @@ function DetalheEtapa({ etapa, faixaDados, faixaSelecionada }: {
       }}>
         <div>
           <div style={{ fontSize: 32, fontWeight: 900, color: '#fff', letterSpacing: 2, lineHeight: 1 }}>
-            {etapa.etapa.toUpperCase()}
+            {etapa.rotulo.toUpperCase()}
           </div>
           {etapa.produto && (
             <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>
@@ -417,23 +408,20 @@ export default function DashboardGeral({ standalone = false }: { standalone?: bo
   }, [toggleFullscreen]);
 
   // ── Dados ────────────────────────────────────────────────────────────────────
-  const carregar = useCallback(async (d: string, prod: string, faixa: string) => {
+  const carregar = useCallback(async (d: string, produtoId: number | null, faixa: string) => {
     setErro(null);
     setLoading(true);
     pararCarrossel();
     setEtapaSelecionada(null);
     try {
-      const api = window.api as typeof window.api & {
-        getDashboardPorEtapas: (d: string, p?: string, h?: string) => Promise<any>;
-      };
       const [resFaixa, resDia] = await Promise.all([
-        api.getDashboardPorEtapas(d, prod || undefined, faixa),
-        api.getDashboardPorEtapas(d, prod || undefined, undefined),
+        window.api.getDashboardPorEtapas(d, produtoId, faixa),
+        window.api.getDashboardPorEtapas(d, produtoId, undefined),
       ]);
-      if (!resFaixa.success) throw new Error(resFaixa.error);
-      if (!resDia.success)   throw new Error(resDia.error);
-      const payload    = resFaixa.data as DashboardPorEtapasData;
-      const payloadDia = resDia.data   as DashboardPorEtapasData;
+      if (!resFaixa.success || !resFaixa.data) throw new Error(resFaixa.error);
+      if (!resDia.success   || !resDia.data)   throw new Error(resDia.error);
+      const payload    = resFaixa.data;
+      const payloadDia = resDia.data;
       etapasRef.current = payloadDia.etapas;
       setDados(payload);
       setDadosDia(payloadDia);
@@ -445,7 +433,7 @@ export default function DashboardGeral({ standalone = false }: { standalone?: bo
     }
   }, [pararCarrossel, iniciarCarrossel]);
 
-  useEffect(() => { carregar(today, '', faixaAtual()); }, []);
+  useEffect(() => { carregar(today, null, faixaAtual()); }, []);
 
   // ── Listener de comandos ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -453,7 +441,7 @@ export default function DashboardGeral({ standalone = false }: { standalone?: bo
     api.onDashboardGeralCommand((cmd: DashboardCommand) => {
       if (cmd.type === 'refresh') {
         setFaixaSelecionada(cmd.faixa);
-        carregar(cmd.data, cmd.produto, cmd.faixa);
+        carregar(cmd.data, cmd.produtoId, cmd.faixa);
       } else if (cmd.type === 'alert') {
         setAlertAtivo({ mensagem: cmd.mensagem });
       } else if (cmd.type === 'alert-image') {
@@ -550,15 +538,15 @@ export default function DashboardGeral({ standalone = false }: { standalone?: bo
           )}
 
           {dadosDia?.etapas.map(etapa => {
-            const ativa        = etapaSelecionada?.etapa === etapa.etapa;
-            const faixaDados   = dados?.etapas.find(e => e.etapa === etapa.etapa);
+            const ativa        = etapaSelecionada?.fichaId === etapa.fichaId;
+            const faixaDados   = dados?.etapas.find(e => e.fichaId === etapa.fichaId);
             return (
               <div
-                key={etapa.etapa}
+                key={etapa.fichaId}
                 onClick={() => selecionarManual(etapa)}
                 style={{
                   borderRadius: 10, cursor: 'pointer',
-                  boxShadow: ativa ? `0 0 0 3px ${corEtapa(etapa.etapa).bg}` : '0 1px 4px rgba(0,0,0,0.10)',
+                  boxShadow: ativa ? `0 0 0 3px ${corEtapa(etapa).bg}` : '0 1px 4px rgba(0,0,0,0.10)',
                   opacity: ativa ? 1 : 0.72,
                   transition: 'opacity 0.15s, box-shadow 0.15s',
                   transform: ativa ? 'scale(1.01)' : 'scale(1)',
@@ -593,8 +581,8 @@ export default function DashboardGeral({ standalone = false }: { standalone?: bo
             </div>
           ) : (
             <DetalheEtapa
-              etapa={dadosDia?.etapas.find(e => e.etapa === etapaSelecionada.etapa) ?? etapaSelecionada}
-              faixaDados={dados?.etapas.find(e => e.etapa === etapaSelecionada.etapa)}
+              etapa={dadosDia?.etapas.find(e => e.fichaId === etapaSelecionada.fichaId) ?? etapaSelecionada}
+              faixaDados={dados?.etapas.find(e => e.fichaId === etapaSelecionada.fichaId)}
               faixaSelecionada={faixaSelecionada}
             />
           )}

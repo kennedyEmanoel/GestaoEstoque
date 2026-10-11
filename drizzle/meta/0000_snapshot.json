@@ -1,0 +1,235 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "75809e90-9c27-4552-a85c-df7f650588f2",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "producao_ficha_diaria": {
+      "name": "producao_ficha_diaria",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "data": {
+          "name": "data",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "produto": {
+          "name": "produto",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "etapa": {
+          "name": "etapa",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "meta_hora_padrao": {
+          "name": "meta_hora_padrao",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 40
+        },
+        "criado_em": {
+          "name": "criado_em",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_ficha_data_etapa": {
+          "name": "idx_ficha_data_etapa",
+          "columns": [
+            "data",
+            "etapa"
+          ],
+          "isUnique": false
+        },
+        "producao_ficha_diaria_data_etapa_produto_unique": {
+          "name": "producao_ficha_diaria_data_etapa_produto_unique",
+          "columns": [
+            "data",
+            "etapa",
+            "produto"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "producao_operador_diario": {
+      "name": "producao_operador_diario",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "ficha_id": {
+          "name": "ficha_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operador_nome": {
+          "name": "operador_nome",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ordem": {
+          "name": "ordem",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "idx_operador_ficha": {
+          "name": "idx_operador_ficha",
+          "columns": [
+            "ficha_id"
+          ],
+          "isUnique": false
+        },
+        "producao_operador_diario_ficha_id_operador_nome_unique": {
+          "name": "producao_operador_diario_ficha_id_operador_nome_unique",
+          "columns": [
+            "ficha_id",
+            "operador_nome"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "producao_operador_diario_ficha_id_producao_ficha_diaria_id_fk": {
+          "name": "producao_operador_diario_ficha_id_producao_ficha_diaria_id_fk",
+          "tableFrom": "producao_operador_diario",
+          "tableTo": "producao_ficha_diaria",
+          "columnsFrom": [
+            "ficha_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "producao_registro_horario": {
+      "name": "producao_registro_horario",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "operador_diario_id": {
+          "name": "operador_diario_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "horario_bloco": {
+          "name": "horario_bloco",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "meta": {
+          "name": "meta",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "realizado": {
+          "name": "realizado",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "idx_registro_op": {
+          "name": "idx_registro_op",
+          "columns": [
+            "operador_diario_id"
+          ],
+          "isUnique": false
+        },
+        "producao_registro_horario_operador_diario_id_horario_bloco_unique": {
+          "name": "producao_registro_horario_operador_diario_id_horario_bloco_unique",
+          "columns": [
+            "operador_diario_id",
+            "horario_bloco"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "producao_registro_horario_operador_diario_id_producao_operador_diario_id_fk": {
+          "name": "producao_registro_horario_operador_diario_id_producao_operador_diario_id_fk",
+          "tableFrom": "producao_registro_horario",
+          "tableTo": "producao_operador_diario",
+          "columnsFrom": [
+            "operador_diario_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

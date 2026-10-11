@@ -7,6 +7,7 @@ import {
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
 import type { DashboardPorEtapasData, EtapaResumo, DadosPorOperador, DashboardCommand } from '../../../shared/types';
+import { corEtapa } from './cores';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, ArcElement, Title, Tooltip, Legend);
 
@@ -53,19 +54,7 @@ const CARROSSEL_INTERVALO_MS = 1 * 60 * 1000;
 
 // ─── Paleta ───────────────────────────────────────────────────────────────────
 
-const COR_ETAPA: Record<string, { bg: string; text: string; bar: string }> = {
-  Montagem: { bg: '#1d4ed8', text: '#fff', bar: 'rgba(59,130,246,0.85)'  },
-  Soldagem: { bg: '#15803d', text: '#fff', bar: 'rgba(34,197,94,0.85)'   },
-  Revisão:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)'  },
-  Revisao:  { bg: '#7e22ce', text: '#fff', bar: 'rgba(168,85,247,0.85)'  },
-  Firmware: { bg: '#b45309', text: '#fff', bar: 'rgba(245,158,11,0.85)'  },
-  IMEI:     { bg: '#0e7490', text: '#fff', bar: 'rgba(6,182,212,0.85)'   },
-};
-const COR_DEFAULT = { bg: '#483751', text: '#fff', bar: 'rgba(107,114,128,0.85)' };
-
-function corEtapa(etapa: string) {
-  return COR_ETAPA[etapa] ?? COR_DEFAULT;
-}
+// As cores por etapa/variação ficam em ./cores (compartilhadas com o painel geral).
 
 // ─── Sub-componentes ──────────────────────────────────────────────────────────
 
@@ -92,8 +81,9 @@ function BadgeFaixa({ faixa }: { faixa: string }) {
   );
 }
 
-function EtapaHeader({ etapa, produto, totalRealizado, pctAtingimento }: EtapaResumo) {
-  const cor = corEtapa(etapa);
+function EtapaHeader(resumo: EtapaResumo) {
+  const { rotulo, produto, totalRealizado, pctAtingimento } = resumo;
+  const cor = corEtapa(resumo);
   const pctColor = pctAtingimento !== null
     ? pctAtingimento >= 100 ? '#86efac'
     : pctAtingimento >= 80  ? '#fde68a'
@@ -107,7 +97,7 @@ function EtapaHeader({ etapa, produto, totalRealizado, pctAtingimento }: EtapaRe
     }}>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
         <div style={{ fontWeight: 800, fontSize: 20, letterSpacing: 1.5, lineHeight: 1 }}>
-          {etapa.toUpperCase()}
+          {rotulo.toUpperCase()}
         </div>
         <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.6)' }}>
           {produto}
@@ -234,12 +224,12 @@ function BarOperadores({ operadores, corBarra }: { operadores: DadosPorOperador[
 
 function BarConsolidado({ etapas }: { etapas: EtapaResumo[] }) {
   const data = {
-    labels: etapas.map(e => e.etapa.toUpperCase()),
+    labels: etapas.map(e => e.rotulo.toUpperCase()),
     datasets: [
       {
         label: 'Realizado',
         data: etapas.map(e => e.totalRealizado),
-        backgroundColor: etapas.map(e => corEtapa(e.etapa).bar),
+        backgroundColor: etapas.map(e => corEtapa(e).bar),
         borderRadius: 6, barPercentage: 0.5,
       },
       {
@@ -269,10 +259,10 @@ function DonutSetores({ etapas }: { etapas: EtapaResumo[] }) {
   const total = etapas.reduce((s, e) => s + e.totalRealizado, 0);
 
   const data = {
-    labels: etapas.map(e => e.etapa.toUpperCase()),
+    labels: etapas.map(e => e.rotulo.toUpperCase()),
     datasets: [{
       data: etapas.map(e => e.totalRealizado),
-      backgroundColor: etapas.map(e => corEtapa(e.etapa).bar),
+      backgroundColor: etapas.map(e => corEtapa(e).bar),
       borderWidth: 2, borderColor: '#f1f5f9',
     }],
   };
@@ -301,7 +291,6 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
   const today = new Date().toISOString().slice(0, 10);
 
   const [data]                    = useState(today);
-  const [produtoInput]            = useState('');
   const [faixaSelecionada, setFaixaSelecionada] = useState<string>(faixaAtual());
   const [dados, setDados]                       = useState<DashboardPorEtapasData | null>(null);
   const [dadosDia, setDadosDia]                 = useState<DashboardPorEtapasData | null>(null);
@@ -353,23 +342,20 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
   }, [toggleFullscreen]);
 
   // ── Dados ────────────────────────────────────────────────────────────────────
-  const carregar = useCallback(async (d: string, prod: string, faixa: string) => {
+  const carregar = useCallback(async (d: string, produtoId: number | null, faixa: string) => {
     setErro(null);
     setLoading(true);
     pararCarrossel();
     setEtapaSelecionada(null);
     try {
-      const api = window.api as typeof window.api & {
-        getDashboardPorEtapas: (d: string, p?: string, h?: string) => Promise<any>;
-      };
       const [resFaixa, resDia] = await Promise.all([
-        api.getDashboardPorEtapas(d, prod || undefined, faixa),
-        api.getDashboardPorEtapas(d, prod || undefined, undefined),
+        window.api.getDashboardPorEtapas(d, produtoId, faixa),
+        window.api.getDashboardPorEtapas(d, produtoId, undefined),
       ]);
-      if (!resFaixa.success) throw new Error(resFaixa.error);
-      if (!resDia.success)   throw new Error(resDia.error);
-      const payload    = resFaixa.data as DashboardPorEtapasData;
-      const payloadDia = resDia.data   as DashboardPorEtapasData;
+      if (!resFaixa.success || !resFaixa.data) throw new Error(resFaixa.error);
+      if (!resDia.success   || !resDia.data)   throw new Error(resDia.error);
+      const payload    = resFaixa.data;
+      const payloadDia = resDia.data;
       etapasRef.current = payload.etapas;
       setDados(payload);
       setDadosDia(payloadDia);
@@ -381,7 +367,7 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
     }
   }, [pararCarrossel, iniciarCarrossel]);
 
-  useEffect(() => { carregar(today, '', faixaAtual()); }, []);
+  useEffect(() => { carregar(today, null, faixaAtual()); }, []);
 
   // ── Listener de comandos do Controle de Produção ─────────────────────────────
   useEffect(() => {
@@ -389,7 +375,7 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
     api.onDashboardCommand((cmd: DashboardCommand) => {
       if (cmd.type === 'refresh') {
         setFaixaSelecionada(cmd.faixa);
-        carregar(cmd.data, cmd.produto, cmd.faixa);
+        carregar(cmd.data, cmd.produtoId, cmd.faixa);
       }
     });
     return () => { api.offDashboardCommand(); };
@@ -428,7 +414,7 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
         <div style={{ width: 1, height: 28, background: 'rgba(255,255,255,0.15)' }} />
 
         <div style={{ color: '#93c5fd', fontSize: 12, fontWeight: 600 }}>
-          {data} {produtoInput ? `· ${produtoInput}` : '· Todos os produtos'}
+          {data} {dados && dados.produto !== 'Todos' ? `· ${dados.produto}` : '· Todos os produtos'}
         </div>
 
         {rotacaoAtiva && (
@@ -488,15 +474,15 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
           )}
 
           {dadosDia?.etapas.map(etapa => {
-            const ativa = etapaSelecionada?.etapa === etapa.etapa;
-            const etapaBloco = dados?.etapas.find(e => e.etapa === etapa.etapa) ?? etapa;
+            const ativa = etapaSelecionada?.fichaId === etapa.fichaId;
+            const etapaBloco = dados?.etapas.find(e => e.fichaId === etapa.fichaId) ?? etapa;
             return (
               <div
-                key={etapa.etapa}
+                key={etapa.fichaId}
                 onClick={() => selecionarManual(etapaBloco)}
                 style={{
                   borderRadius: 10, cursor: 'pointer',
-                  boxShadow: ativa ? `0 0 0 3px ${corEtapa(etapa.etapa).bg}` : '0 1px 4px rgba(0,0,0,0.10)',
+                  boxShadow: ativa ? `0 0 0 3px ${corEtapa(etapa).bg}` : '0 1px 4px rgba(0,0,0,0.10)',
                   opacity: ativa ? 1 : 0.7,
                   transition: 'opacity 0.15s, box-shadow 0.15s',
                   transform: ativa ? 'scale(1.01)' : 'scale(1)',
@@ -536,12 +522,12 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                 flexWrap: 'wrap', gap: 12, flexShrink: 0,
-                background: corEtapa(etapaSelecionada.etapa).bg,
+                background: corEtapa(etapaSelecionada).bg,
                 borderRadius: 12, padding: '12px 20px',
               }}>
                 <div>
                   <div style={{ fontSize: 28, fontWeight: 900, color: '#fff', letterSpacing: 2, lineHeight: 1 }}>
-                    {etapaSelecionada.etapa.toUpperCase()}
+                    {etapaSelecionada.rotulo.toUpperCase()}
                   </div>
                   {etapaSelecionada.produto && (
                     <div style={{ fontSize: 12, fontWeight: 600, color: 'rgba(255,255,255,0.65)', marginTop: 3 }}>
@@ -571,7 +557,7 @@ export default function ProducaoDashboard({ standalone = false }: { standalone?:
                 </div>
                 <div style={{ height: 180 }}>
                   {etapaSelecionada.porOperador.some(o => o.totalRealizado > 0 || o.totalMeta > 0)
-                    ? <BarOperadores operadores={etapaSelecionada.porOperador} corBarra={corEtapa(etapaSelecionada.etapa).bar} />
+                    ? <BarOperadores operadores={etapaSelecionada.porOperador} corBarra={corEtapa(etapaSelecionada).bar} />
                     : <Vazio height={180} />
                   }
                 </div>

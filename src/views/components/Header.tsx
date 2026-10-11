@@ -9,6 +9,7 @@ interface HeaderProps {
 
 const PAGE_TITLES: Record<string, { title: string; description: string }> = {
   dashboard:     { title: 'Painel de Controle', description: 'Indicadores e métricas de produção' },
+  cadastros:     { title: 'Cadastros', description: 'Operadores, produtos e etapas do processo' },
 };
 
 const Header = ({ abaAtiva, sidebarAberta, setSidebarAberta, serverUrl }: HeaderProps) => {

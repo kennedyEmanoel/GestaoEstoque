@@ -29,6 +29,8 @@ const config: ForgeConfig = {
     name: 'Produção',
     executableName: 'Producao',
     icon: './assets/icon',
+    // Migrações do banco: ficam em <app>/resources/drizzle (ver pastaMigracoes em models/db.ts)
+    extraResource: ['./drizzle'],
   },
   rebuildConfig: {
     extraModules: ['better-sqlite3'],
