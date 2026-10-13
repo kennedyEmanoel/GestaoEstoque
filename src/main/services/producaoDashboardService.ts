@@ -6,7 +6,7 @@ import type { DashboardPorEtapasData, EtapaResumo } from '../../shared/types';
 import { dataIso, idOpcional, textoOpcional } from './validacao';
 
 /**
- * Dashboard do dia: um resumo por ficha (etapa/variação de um produto).
+ * 
  *
  * @param data          'AAAA-MM-DD'
  * @param produtoId     filtra por produto; omitido/null = todos
