@@ -11,6 +11,7 @@ import type {
   RegistroHorario,
 } from '../../../shared/types';
 import { rotuloEtapa, rotuloProduto } from '../../../shared/rotulos';
+import { BLOCOS_HORARIOS } from '../../../shared/horarios';
 import { chamar, mensagemDeErro } from '../../lib/api';
 import SeletorDashboard from './SeletorDashboard';
 import ExistentesPanel from './ExistentesPanel';
@@ -19,18 +20,6 @@ import { btnPerigo, btnSecundario } from '../../components/ui/estilos';
 import { linhasDoImpacto } from '../../lib/impacto';
 
 // ─── Constantes ───────────────────────────────────────────────────────────────
-
-const BLOCOS_HORARIOS = [
-  '07:12 - 08:00',
-  '08:00 - 09:00',
-  '09:15 - 10:00',
-  '10:00 - 11:00',
-  '11:00 - 12:00',
-  '13:00 - 14:00',
-  '14:00 - 15:00',
-  '15:00 - 16:00',
-  '16:00 - 17:12',
-];
 
 const COR_OP = ['#e67e22','#27ae60','#8e44ad','#2980b9','#c0392b','#f39c12','#16a085','#d35400'];
 

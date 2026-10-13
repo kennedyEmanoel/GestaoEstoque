@@ -1,6 +1,5 @@
 import { ErroNegocio } from '../erros';
 
-/** Remove espaços nas pontas e colapsa espaços repetidos. */
 export function limparEspacos(texto: string): string {
   return texto.trim().replace(/\s+/g, ' ');
 }
@@ -49,7 +48,6 @@ export function dataIso(valor: unknown, campo = 'Data'): string {
   return valor;
 }
 
-/** Ordenação alfabética que respeita acentos e ignora maiúsculas. */
 export function porTexto<T>(extrair: (item: T) => string) {
   return (a: T, b: T) => extrair(a).localeCompare(extrair(b), 'pt-BR', { sensitivity: 'base' });
 }

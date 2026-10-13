@@ -28,13 +28,11 @@ export function atualizar(
     .get();
 }
 
-/** O que será apagado junto: todos os cartões do produto, com suas escalas e registros. */
 export function impacto(id: number): ImpactoExclusao {
   const fichas = idsDeFichas(eq(producaoFichaDiaria.produtoId, id));
   return { cartoes: fichas.length, ...contarDependentesDeFichas(fichas), variacoes: 0 };
 }
 
-/** Apaga o produto e todos os cartões dele (escalas e registros saem em cascata). */
 export function remover(id: number): void {
   db.transaction((tx) => {
     tx.delete(producaoFichaDiaria).where(eq(producaoFichaDiaria.produtoId, id)).run();

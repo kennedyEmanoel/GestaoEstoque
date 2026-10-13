@@ -49,7 +49,6 @@ function chaveValida(input: GetFichaInput) {
   };
 }
 
-/** Confere se produto, etapa e variação existem, estão ativos e se a variação pertence à etapa. */
 function garantirCadastrosUsaveis(produtoId: number, etapaId: number, variacaoId: number | null): void {
   const produto = produtoRepo.buscarPorId(produtoId);
   if (!produto) throw new ErroNegocio('Produto não encontrado.');
@@ -75,8 +74,6 @@ function fichaOuFalhar(id: number): FichaDiaria {
   return ficha;
 }
 
-// ─── Funções exportadas ──────────────────────────────────────────────────────
-
 export function getFichaCompleta(input: GetFichaInput): FichaDiariaCompleta | null {
   const ficha = repo.buscarFichaPorChave(chaveValida(input));
   return ficha ? montarFichaCompleta(ficha) : null;
@@ -86,18 +83,15 @@ export function getFichaPorId(id: number): FichaDiariaCompleta {
   return montarFichaCompleta(fichaOuFalhar(idObrigatorio(id, 'Ficha')));
 }
 
-/** O que será apagado junto com o cartão (para o aviso antes de excluir). */
 export function impactoDoCartao(id: number): ImpactoExclusao {
   const ficha = fichaOuFalhar(idObrigatorio(id, 'Ficha'));
   return { cartoes: 1, ...repo.contarDependentesDeFichas([ficha.id]), variacoes: 0 };
 }
 
-/** Exclui o cartão com todos os operadores escalados e registros dele. */
 export function removerCartao(id: number): void {
   repo.removerFicha(fichaOuFalhar(idObrigatorio(id, 'Ficha')).id);
 }
 
-/** Cartões que já existem em um dia, com o total de cada um (para abrir com um clique). */
 export function listarCartoesDoDia(data: string): CartaoDoDia[] {
   const dia = dataIso(data);
   return dashboardRepo.listarFichasDoDia(dia, null).map((ficha) => {
@@ -118,7 +112,6 @@ export function listarCartoesDoDia(data: string): CartaoDoDia[] {
   });
 }
 
-/** Últimos dias com cartões (padrão: 14). */
 export function listarDiasComRegistro(limite = 14): DiaComRegistro[] {
   if (!Number.isInteger(limite) || limite < 1 || limite > 90) {
     throw new ErroNegocio('Limite de dias inválido (1 a 90).');

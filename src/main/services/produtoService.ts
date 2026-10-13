@@ -66,14 +66,12 @@ export function definirAtivo(id: number, ativo: boolean): Produto {
   return repo.atualizar(id, { ativo: !!ativo })!;
 }
 
-/** O que será apagado junto com o produto (para o aviso antes de excluir). */
 export function impacto(id: number): ImpactoExclusao {
   idObrigatorio(id, 'Produto');
   obterOuFalhar(id);
   return repo.impacto(id);
 }
 
-/** Exclui o produto e todos os cartões dele (com escalas e registros). */
 export function remover(id: number): void {
   idObrigatorio(id, 'Produto');
   obterOuFalhar(id);

@@ -26,13 +26,11 @@ export function atualizar(id: number, dados: { nome?: string; ativo?: boolean })
     .get();
 }
 
-/** O que será apagado junto: os cartões que usam esta variação (com escalas e registros). */
 export function impacto(id: number): ImpactoExclusao {
   const fichas = idsDeFichas(eq(producaoFichaDiaria.variacaoId, id));
   return { cartoes: fichas.length, ...contarDependentesDeFichas(fichas), variacoes: 0 };
 }
 
-/** Apaga a variação e os cartões que a usam. */
 export function remover(id: number): void {
   db.transaction((tx) => {
     tx.delete(producaoFichaDiaria).where(eq(producaoFichaDiaria.variacaoId, id)).run();

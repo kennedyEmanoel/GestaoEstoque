@@ -5,6 +5,7 @@ import started from 'electron-squirrel-startup';
 import { updateElectronApp } from 'update-electron-app';
 import { setupProducaoControllers } from './main/controllers/producaoController';
 import { setupCadastrosControllers } from './main/controllers/cadastrosController';
+import { setupAnaliseControllers } from './main/controllers/analiseController';
 import { db, sqlite, pastaMigracoes, pastaBackups } from './main/models/db';
 import { migrarBanco } from './main/models/migrador';
 import { startInternalServer } from './main/server/internalServer';
@@ -163,6 +164,7 @@ app.on('ready', () => {
 
   setupCadastrosControllers();
   setupProducaoControllers();
+  setupAnaliseControllers();
 
   ipcMain.on('open-production-window', () => {
     createProductionWindow();

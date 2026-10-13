@@ -5,11 +5,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 export interface OpcoesMigracao {
-  /** Pasta com os .sql e meta/_journal.json gerados pelo drizzle-kit. */
   pastaMigracoes: string;
-  /** Onde guardar a cópia de segurança feita antes de aplicar migrações. Omitir desliga o backup. */
   pastaBackups?: string;
-  /** Quantas cópias de segurança manter (as mais recentes). */
   manterBackups?: number;
 }
 
@@ -38,15 +35,9 @@ function colunas(sqlite: Database.Database, tabela: string): string[] {
   return (sqlite.pragma(`table_info(${tabela})`) as { name: string }[]).map((c) => c.name);
 }
 
-/**
- * Antes de converter os textos livres (produto/etapa/operador) em cadastros, garante que a
- * conversão não vai juntar duas fichas (ou dois operadores) que hoje são distintos só por
- * maiúsculas/espaços. Se juntasse, a migração falharia no meio — melhor avisar antes, com clareza.
- */
 function verificarDuplicidadesLegadas(sqlite: Database.Database): void {
   if (!tabelaExiste(sqlite, 'producao_ficha_diaria')) return;
-  if (!colunas(sqlite, 'producao_ficha_diaria').includes('produto')) return; // já convertido
-
+  if (!colunas(sqlite, 'producao_ficha_diaria').includes('produto')) return; 
   const fichas = sqlite.prepare(`
     SELECT data, GROUP_CONCAT(id) AS ids
     FROM producao_ficha_diaria
@@ -80,7 +71,6 @@ function criarBackup(sqlite: Database.Database, pasta: string, manter: number): 
   fs.mkdirSync(pasta, { recursive: true });
   const carimbo = new Date().toISOString().replace(/[:.]/g, '-');
   const destino = path.join(pasta, `bd_estoque-antes-da-migracao-${carimbo}.sqlite`);
-  // VACUUM INTO gera uma cópia consistente do banco sem precisar fechá-lo.
   sqlite.exec(`VACUUM INTO '${destino.replace(/'/g, "''")}'`);
 
   const antigos = fs.readdirSync(pasta)
@@ -93,10 +83,6 @@ function criarBackup(sqlite: Database.Database, pasta: string, manter: number): 
   return destino;
 }
 
-/**
- * Aplica as migrações pendentes. Se houver pendência em um banco que já tem dados,
- * faz antes uma cópia de segurança.
- */
 export function migrarBanco(
   db: BetterSQLite3Database<any>,
   sqlite: Database.Database,
@@ -114,9 +100,6 @@ export function migrarBanco(
     if (opcoes.pastaBackups) backup = criarBackup(sqlite, opcoes.pastaBackups, opcoes.manterBackups ?? 5);
   }
 
-  // As migrações reconstroem tabelas (DROP + RENAME). Com as chaves estrangeiras ligadas, o DROP de
-  // uma tabela "pai" apagaria em cascata os filhos. O PRAGMA só vale fora de uma transação, por isso
-  // é desligado aqui, antes de o migrador abrir a dele.
   sqlite.pragma('foreign_keys = OFF');
   try {
     migrate(db, { migrationsFolder: opcoes.pastaMigracoes });

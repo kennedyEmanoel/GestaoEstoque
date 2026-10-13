@@ -8,7 +8,6 @@ import { idObrigatorio, textoObrigatorio, textoOpcional } from './validacao';
 const NOME_MAX = 40;
 const DESCRICAO_MAX = 300;
 
-/** Junta a etapa com suas variações (respeitando o filtro de inativos). */
 function comVariacoes(linha: repo.LinhaEtapa, incluirInativos: boolean): Etapa {
   const variacoes = variacaoRepo.listar(incluirInativos).filter((v) => v.etapaId === linha.id);
   return { ...linha, variacoes };
@@ -31,7 +30,6 @@ function garantirNomeLivre(nome: string, ignorarId?: number): void {
   }
 }
 
-/** Lista na ordem do processo. Só as ativas (e suas variações ativas), a menos que se peça o contrário. */
 export function listar(filtro?: FiltroCadastro): Etapa[] {
   const incluirInativos = filtro?.incluirInativos ?? false;
   const variacoes = variacaoRepo.listar(incluirInativos);
@@ -63,14 +61,12 @@ export function definirAtivo(id: number, ativo: boolean): Etapa {
   return comVariacoes(repo.atualizar(id, { ativo: !!ativo })!, true);
 }
 
-/** O que será apagado junto com a etapa (para o aviso antes de excluir). */
 export function impacto(id: number): ImpactoExclusao {
   idObrigatorio(id, 'Etapa');
   obterOuFalhar(id);
   return repo.impacto(id);
 }
 
-/** Exclui a etapa, suas variações e todos os cartões dela (com escalas e registros). */
 export function remover(id: number): void {
   idObrigatorio(id, 'Etapa');
   obterOuFalhar(id);

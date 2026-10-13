@@ -6,7 +6,6 @@ export interface OpcoesPaginaDashboard {
   produtoId: number | null;
   faixa: string;
   dados: DashboardPorEtapasData | null;
-  /** Mensagem exibida quando os dados não puderam ser carregados. */
   erro?: string;
   produtos: Produto[];
 }
@@ -23,16 +22,10 @@ function escHtml(texto: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
-
-/** JSON seguro para embutir dentro de um <script> (impede "</script>" e "<!--" nos textos). */
 function jsonParaScript(valor: unknown): string {
   return JSON.stringify(valor).replace(/</g, '\\u003c');
 }
 
-/**
- * Página web "Dashboard de Produção". Os dados já chegam calculados pelo servidor;
- * o script do navegador só desenha (usa concatenação de strings, sem crases nem ${}).
- */
 export function pageDashboard(o: OpcoesPaginaDashboard): string {
   const opcoesProduto = o.produtos
     .map((p) => `<option value="${p.id}"${o.produtoId === p.id ? ' selected' : ''}>${escHtml(rotuloProduto(p.nome, p.versao))}</option>`)

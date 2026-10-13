@@ -1,13 +1,13 @@
+import type { AnaliseDesempenho, CombinacaoAnalise, FiltroAnalise } from './analise';
+
 export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
 }
 
-// ─── Cadastros ────────────────────────────────────────────────────────────────
 
 export interface FiltroCadastro {
-  /** Por padrão a listagem traz só os ativos (é o que alimenta os seletores). */
   incluirInativos?: boolean;
 }
 
@@ -27,7 +27,6 @@ export interface Produto {
   id: number;
   nome: string;
   descricao: string | null;
-  /** Vazio quando o produto não tem versão. */
   versao: string;
   ativo: boolean;
   criadoEm: number;
@@ -65,7 +64,6 @@ export interface Etapa {
   ativo: boolean;
   criadoEm: number;
   atualizadoEm: number;
-  /** Variações da etapa (só as ativas, a menos que a listagem peça os inativos). */
   variacoes: EtapaVariacao[];
 }
 
@@ -74,7 +72,6 @@ export interface EtapaInput {
   descricao?: string | null;
 }
 
-/** O que também será apagado junto quando um item (ou cartão) é excluído. */
 export interface ImpactoExclusao {
   cartoes: number;
   operadores: number;
@@ -82,9 +79,7 @@ export interface ImpactoExclusao {
   variacoes: number;
 }
 
-/** As operações que todo cadastro expõe. */
 export interface CrudApi<T, TCriar, TAtualizar = TCriar> {
-  /** Quanto será apagado junto, para o aviso antes de excluir. */
   impacto:      (id: number) => Promise<ApiResponse<ImpactoExclusao>>;
   listar:       (filtro?: FiltroCadastro) => Promise<ApiResponse<T[]>>;
   criar:        (input: TCriar) => Promise<ApiResponse<T>>;
@@ -92,8 +87,6 @@ export interface CrudApi<T, TCriar, TAtualizar = TCriar> {
   definirAtivo: (id: number, ativo: boolean) => Promise<ApiResponse<T>>;
   remover:      (id: number) => Promise<ApiResponse>;
 }
-
-// ─── Módulo: Controle de Produção Hora a Hora ────────────────────────────────
 
 export interface FichaDiaria {
   id: number;
@@ -162,7 +155,6 @@ export interface UpsertRegistroInput {
   realizado: number;
 }
 
-/** Cartão existente em um dia (para a lista de abertura rápida). */
 export interface CartaoDoDia {
   fichaId: number;
   etapa: string;
@@ -175,7 +167,6 @@ export interface CartaoDoDia {
   pctAtingimento: number | null;
 }
 
-/** Dia que já tem cartões, com o total produzido. */
 export interface DiaComRegistro {
   data: string;
   cartoes: number;
@@ -183,7 +174,6 @@ export interface DiaComRegistro {
   totalMeta: number;
 }
 
-// ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export interface DadosPorHora {
   horarioBloco: string;
@@ -197,12 +187,10 @@ export interface DadosPorOperador {
   totalMeta: number;
 }
 
-/** Resumo de uma ficha (cartão) do dia: uma etapa/variação de um produto. */
 export interface EtapaResumo {
   fichaId: number;
   etapa: string;
   variacao: string | null;
-  /** Texto de exibição: "Soldagem" ou "Soldagem · Retrabalho". */
   rotulo: string;
   produto: string;
   totalRealizado: number;
@@ -219,8 +207,6 @@ export interface DashboardPorEtapasData {
   totalGeral: { realizado: number; meta: number };
   etapas: EtapaResumo[];
 }
-
-// ─── Comandos do Controle de Produção → Dashboard ─────────────────────────────
 
 export type DashboardCommand =
   | { type: 'refresh';      data: string; produtoId: number | null; faixa: string }
@@ -247,6 +233,11 @@ declare global {
       produtos:   CrudApi<Produto, ProdutoInput>;
       etapas:     CrudApi<Etapa, EtapaInput>;
       variacoes:  CrudApi<EtapaVariacao, EtapaVariacaoCriarInput, EtapaVariacaoAtualizarInput>;
+
+      analise: {
+        opcoes:     () => Promise<ApiResponse<CombinacaoAnalise[]>>;
+        desempenho: (filtro: FiltroAnalise) => Promise<ApiResponse<AnaliseDesempenho>>;
+      };
 
       openProductionWindow:       () => void;
       closeProductionWindow:      () => void;

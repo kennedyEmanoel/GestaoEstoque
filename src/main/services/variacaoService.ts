@@ -56,14 +56,12 @@ export function definirAtivo(id: number, ativo: boolean): EtapaVariacao {
   return repo.atualizar(id, { ativo: !!ativo })!;
 }
 
-/** O que será apagado junto com a variação (para o aviso antes de excluir). */
 export function impacto(id: number): ImpactoExclusao {
   idObrigatorio(id, 'Variação');
   obterOuFalhar(id);
   return repo.impacto(id);
 }
 
-/** Exclui a variação e os cartões que a usam (com escalas e registros). */
 export function remover(id: number): void {
   idObrigatorio(id, 'Variação');
   obterOuFalhar(id);

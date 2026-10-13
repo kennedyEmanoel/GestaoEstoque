@@ -10,7 +10,6 @@ import * as etapas from './etapaService';
 import * as variacoes from './variacaoService';
 import * as producao from './producaoService';
 
-/** Remove tudo que os testes criam, preservando as etapas/variações padrão das migrações. */
 function limpar() {
   sqlite.exec(`
     DELETE FROM producao_ficha_diaria;
@@ -112,7 +111,6 @@ describe('produtos', () => {
     produtos.criar({ nome: 'Rastreador', versao: 'v1' });
     produtos.criar({ nome: 'Rastreador', versao: 'v2' });
     falhaCom(() => produtos.criar({ nome: 'RASTREADOR', versao: ' V1 ' }), /Já existe o produto "Rastreador v1"/);
-    // sem versão é outro item (nome + versão vazia)
     expect(produtos.criar({ nome: 'Rastreador' }).versao).toBe('');
     falhaCom(() => produtos.criar({ nome: 'rastreador' }), /Já existe o produto "Rastreador"/);
   });
@@ -152,7 +150,6 @@ describe('produtos', () => {
     expect(produtos.listar({ incluirInativos: true }).map((x) => x.nome)).toEqual(['Outro']);
     expect(sqlite.prepare('SELECT id FROM producao_ficha_diaria').all()).toEqual([{ id: g.id }]);
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM producao_registro_horario').get()).toEqual({ n: 0 });
-    // o operador continua cadastrado
     expect(operadores.listar().map((o) => o.nome)).toEqual(['ANA']);
   });
 });

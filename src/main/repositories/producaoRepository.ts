@@ -18,8 +18,6 @@ export interface ChaveFicha {
   variacaoId: number | null;
 }
 
-// ─── Fichas (cartões do dia) ─────────────────────────────────────────────────
-
 function consultaFicha() {
   return db
     .select({
@@ -61,7 +59,6 @@ export function inserirFicha(dados: ChaveFicha & { metaHoraPadrao: number }): nu
     .get().id;
 }
 
-/** Os dias mais recentes que têm cartões, do mais novo para o mais antigo. */
 export function listarDiasComRegistro(limite: number): DiaComRegistro[] {
   return db
     .select({
@@ -82,8 +79,6 @@ export function listarDiasComRegistro(limite: number): DiaComRegistro[] {
 export function atualizarMetaPadrao(id: number, meta: number): boolean {
   return db.update(fichas).set({ metaHoraPadrao: meta }).where(eq(fichas.id, id)).run().changes > 0;
 }
-
-// ─── Escala de operadores na ficha ───────────────────────────────────────────
 
 function consultaEscala() {
   return db
@@ -119,12 +114,10 @@ export function inserirEscala(dados: { fichaId: number; operadorId: number; orde
   return db.insert(escalas).values(dados).returning({ id: escalas.id }).get().id;
 }
 
-/** Ids das fichas que atendem a uma condição (base para medir/apagar o que depende de um cadastro). */
 export function idsDeFichas(condicao: SQL): number[] {
   return db.select({ id: fichas.id }).from(fichas).where(condicao).all().map((f) => f.id);
 }
 
-/** Quantas escalas e registros horários existem nas fichas informadas. */
 export function contarDependentesDeFichas(fichaIds: number[]): { operadores: number; registros: number } {
   if (fichaIds.length === 0) return { operadores: 0, registros: 0 };
   const operadores = db.select({ total: count() }).from(escalas)
@@ -135,17 +128,13 @@ export function contarDependentesDeFichas(fichaIds: number[]): { operadores: num
   return { operadores, registros: regs };
 }
 
-/** Apaga a ficha; escala e registros saem junto (ON DELETE CASCADE). */
 export function removerFicha(id: number): void {
   db.delete(fichas).where(eq(fichas.id, id)).run();
 }
 
-/** Os registros horários saem junto (ON DELETE CASCADE). */
 export function removerEscala(id: number): void {
   db.delete(escalas).where(eq(escalas.id, id)).run();
 }
-
-// ─── Registros hora a hora ───────────────────────────────────────────────────
 
 export function listarRegistrosDaFicha(fichaId: number): RegistroHorario[] {
   return db

@@ -6,12 +6,6 @@ import { migrarBanco } from '../models/migrador';
 
 export const PASTA_MIGRACOES = path.resolve(__dirname, '../../../drizzle');
 
-/**
- * Banco SQLite em memória já com todas as migrações aplicadas (inclusive as etapas padrão).
- * Usado nos testes no lugar de `models/db`, que depende do Electron:
- *
- *   vi.mock('../models/db', async () => (await import('../testing/bancoDeTeste')).criarBancoDeTeste());
- */
 export function criarBancoDeTeste() {
   const sqlite = new Database(':memory:');
   sqlite.pragma('foreign_keys = ON');

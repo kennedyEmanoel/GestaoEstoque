@@ -6,7 +6,6 @@ import { contarDependentesDeFichas, idsDeFichas } from './producaoRepository';
 
 export type LinhaEtapa = typeof etapas.$inferSelect;
 
-/** Na ordem de cadastro, que acompanha a sequência do processo (Montagem → ... → Gravação). */
 export function listar(incluirInativos: boolean): LinhaEtapa[] {
   const consulta = db.select().from(etapas);
   return (incluirInativos ? consulta : consulta.where(eq(etapas.ativo, true))).orderBy(asc(etapas.id)).all();
@@ -31,7 +30,6 @@ export function atualizar(
     .get();
 }
 
-/** O que será apagado junto: as variações da etapa e todos os cartões dela (com escalas e registros). */
 export function impacto(id: number): ImpactoExclusao {
   const fichas = idsDeFichas(eq(producaoFichaDiaria.etapaId, id));
   const variacoes = db.select({ total: count() }).from(etapaVariacoes)
@@ -39,7 +37,6 @@ export function impacto(id: number): ImpactoExclusao {
   return { cartoes: fichas.length, ...contarDependentesDeFichas(fichas), variacoes };
 }
 
-/** Apaga a etapa, suas variações e todos os cartões dela. */
 export function remover(id: number): void {
   db.transaction((tx) => {
     tx.delete(producaoFichaDiaria).where(eq(producaoFichaDiaria.etapaId, id)).run();

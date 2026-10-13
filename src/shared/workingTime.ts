@@ -1,18 +1,5 @@
-/**
- * Calendário industrial para cálculo de tempo líquido de produção.
- *
- * Jornada:
- *   Seg–Qui  07:12–17:12  (10h brutas)
- *   Sexta    07:12–16:12  (9h brutas)
- *   Sáb/Dom  não trabalhado
- *
- * Descontos fixos diários (se o período intersectar a janela):
- *   Café:   09:30–09:55  (25 min)
- *   Almoço: 12:00–13:00  (60 min)
- */
-
 interface Break {
-  start: [number, number]; // [hora, minuto]
+  start: [number, number];
   end:   [number, number];
 }
 
@@ -85,7 +72,6 @@ export function calcWorkingSeconds(startMs: number, endMs: number): number {
   return Math.floor(totalMs / 1000);
 }
 
-/** Formata segundos de tempo líquido. Ex: "2h 34m 10s" */
 export function formatWorkingTime(seconds: number | null | undefined): string {
   if (seconds == null || seconds < 0) return '—';
   const h = Math.floor(seconds / 3600);

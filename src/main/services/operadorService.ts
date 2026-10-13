@@ -23,7 +23,6 @@ function garantirNomeLivre(nome: string, ignorarId?: number): void {
   }
 }
 
-/** Convenção do sistema: nomes de operador em maiúsculas, como sempre apareceram nos cartões. */
 function nomeValido(valor: unknown): string {
   return textoObrigatorio(valor, 'Nome', NOME_MAX).toUpperCase();
 }
@@ -52,14 +51,13 @@ export function definirAtivo(id: number, ativo: boolean): Operador {
   return repo.atualizar(id, { ativo: !!ativo })!;
 }
 
-/** O que será apagado junto com o operador (para o aviso antes de excluir). */
+
 export function impacto(id: number): ImpactoExclusao {
   idObrigatorio(id, 'Operador');
   obterOuFalhar(id);
   return repo.impacto(id);
 }
 
-/** Exclui o operador e as escalas/registros dele. Os cartões continuam existindo. */
 export function remover(id: number): void {
   idObrigatorio(id, 'Operador');
   obterOuFalhar(id);

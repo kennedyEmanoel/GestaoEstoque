@@ -8,7 +8,6 @@ import { migrarBanco } from './migrador';
 
 const PASTA_MIGRACOES = path.resolve(__dirname, '../../../drizzle');
 
-/** DDL exatamente como o db.ts antigo criava (antes das migrações versionadas). */
 const DDL_LEGADO = `
   CREATE TABLE producao_ficha_diaria (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -56,7 +55,6 @@ function criarLegado(arquivo: string, seed: (sqlite: Database.Database) => void)
   return { sqlite, db };
 }
 
-/** Massa de dados parecida com a real: grafias variadas, etapas antigas Firmware/IMEI, registros por hora. */
 function seedPadrao(sqlite: Database.Database) {
   const ficha = sqlite.prepare(`INSERT INTO producao_ficha_diaria (data, produto, etapa, meta_hora_padrao, criado_em) VALUES (?, ?, ?, ?, 1)`);
   const op = sqlite.prepare(`INSERT INTO producao_operador_diario (ficha_id, operador_nome, ordem) VALUES (?, ?, ?)`);
@@ -149,15 +147,12 @@ describe('migrarBanco', () => {
       expect(sqlite.pragma('foreign_key_check')).toEqual([]);
       expect(sqlite.pragma('foreign_keys', { simple: true })).toBe(1);
 
-      // produtos: "4G SIMCOM" e " 4g simcom" viram um só; "GPS 2G" é outro
       expect(sqlite.prepare(`SELECT nome FROM produtos ORDER BY nome`).all()).toEqual([{ nome: '4G SIMCOM' }, { nome: 'GPS 2G' }]);
 
-      // operadores: "joao " e "JOAO" viram um só
       expect(sqlite.prepare(`SELECT nome FROM operadores ORDER BY nome`).all()).toEqual([
         { nome: 'ANA' }, { nome: 'JOAO' }, { nome: 'MARIA' }, { nome: 'PEDRO' },
       ]);
 
-      // etapas/variações: Firmware e IMEI viram variações de Gravação; "Revisao" vira "Revisão"
       const fichas = sqlite.prepare(`
         SELECT f.data, p.nome AS produto, e.nome AS etapa, v.nome AS variacao
         FROM producao_ficha_diaria f
@@ -175,7 +170,6 @@ describe('migrarBanco', () => {
         { data: '2026-10-02', produto: 'GPS 2G',    etapa: 'Montagem', variacao: null },
       ]);
 
-      // a escala de operadores continua ligada às mesmas fichas
       expect(sqlite.prepare(`
         SELECT f.id AS ficha, o.nome AS operador FROM producao_operador_diario d
         JOIN producao_ficha_diaria f ON f.id = d.ficha_id JOIN operadores o ON o.id = d.operador_id
@@ -200,7 +194,6 @@ describe('migrarBanco', () => {
       expect(r.backup).not.toBeNull();
       const copia = new Database(r.backup!, { readonly: true });
       abertos.push(copia);
-      // a cópia é o banco ANTES da migração: ainda tem os textos livres e nenhum cadastro
       expect(copia.prepare(`SELECT COUNT(*) AS n FROM producao_ficha_diaria`).get()).toEqual({ n: 6 });
       expect(copia.prepare(`SELECT name FROM sqlite_master WHERE name = 'operadores'`).get()).toBeUndefined();
     });

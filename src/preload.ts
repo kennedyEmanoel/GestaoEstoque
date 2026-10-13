@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from 'electron';
+import type { FiltroAnalise } from './shared/analise';
 import type {
   AddOperadorInput,
   CreateFichaDiariaInput,
@@ -25,6 +26,11 @@ contextBridge.exposeInMainWorld('api', {
   produtos:   crud('produtos'),
   etapas:     crud('etapas'),
   variacoes:  crud('variacoes'),
+
+  analise: {
+    opcoes: () => ipcRenderer.invoke('analise:opcoes'),
+    desempenho: (filtro: FiltroAnalise) => ipcRenderer.invoke('analise:desempenho', filtro),
+  },
 
   // Produção hora a hora
   getOrCreateFicha: (data: CreateFichaDiariaInput) =>

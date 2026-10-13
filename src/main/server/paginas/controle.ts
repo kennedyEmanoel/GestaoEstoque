@@ -1,9 +1,3 @@
-/**
- * Página web "Controle de Produção" (acessada pelo gestor pela rede local).
- *
- * O HTML é uma string única; o script do navegador usa só concatenação de strings
- * (sem crases nem ${}) para não conflitar com o template literal do TypeScript.
- */
 export function pageControle(): string {
   return `<!DOCTYPE html>
 <html lang="pt-BR">

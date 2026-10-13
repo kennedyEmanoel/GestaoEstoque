@@ -2,7 +2,6 @@ import { ipcMain } from 'electron';
 import type { FiltroCadastro, ImpactoExclusao } from '../../shared/types';
 import { executar } from './resposta';
 
-/** Registra um canal IPC que responde sempre com ApiResponse. */
 export function registrar<A extends unknown[], R>(canal: string, acao: (...args: A) => R): void {
   ipcMain.handle(canal, (_evento, ...args) => executar(() => acao(...(args as A))));
 }
@@ -16,7 +15,6 @@ interface ServicoCrud<T, TCriar, TAtualizar> {
   impacto(id: number): ImpactoExclusao;
 }
 
-/** Registra os canais padrão de um cadastro: listar, criar, atualizar, definir-ativo, remover e impacto. */
 export function registrarCrud<T, TCriar, TAtualizar>(
   prefixo: string,
   servico: ServicoCrud<T, TCriar, TAtualizar>,

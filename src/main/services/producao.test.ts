@@ -204,7 +204,6 @@ describe('excluir cartão', () => {
 
     expect(producao.listarCartoesDoDia(DIA).map((c) => c.fichaId)).toEqual([b.id]);
     expect(sqlite.prepare('SELECT COUNT(*) AS n FROM producao_registro_horario').get()).toEqual({ n: 1 });
-    // operador e produto continuam cadastrados
     expect(operadores.listar().length).toBe(2);
     falhaCom(() => producao.removerCartao(a.id), /Ficha .* não encontrada/);
   });
@@ -249,7 +248,6 @@ describe('o que já existe (cartões do dia e dias com registro)', () => {
 
 describe('dashboard por etapas', () => {
   function preencher() {
-    // Montagem do 4G: João 40/38 e 40/41 ; Maria 40/20
     const m = abrir();
     const mj = producao.addOperador({ fichaId: m.id, operadorId: joao.id });
     const mm = producao.addOperador({ fichaId: m.id, operadorId: maria.id });
@@ -257,13 +255,11 @@ describe('dashboard por etapas', () => {
     producao.upsertRegistro({ operadorDiarioId: mj.id, horarioBloco: '08:00 - 09:00', meta: 40, realizado: 41 });
     producao.upsertRegistro({ operadorDiarioId: mm.id, horarioBloco: '07:12 - 08:00', meta: 40, realizado: 20 });
 
-    // Gravação / IMEI do 4G: Maria 30/29
     const imei = gravacao.variacoes.find((v) => v.nome === 'IMEI')!;
     const g = abrir({ etapaId: gravacao.id, variacaoId: imei.id, metaHoraPadrao: 30 });
     const gm = producao.addOperador({ fichaId: g.id, operadorId: maria.id });
     producao.upsertRegistro({ operadorDiarioId: gm.id, horarioBloco: '07:12 - 08:00', meta: 30, realizado: 29 });
 
-    // Soldagem do GPS 2G: João 50/55
     const s = abrir({ produtoId: outroProduto.id, etapaId: soldagem.id, metaHoraPadrao: 50 });
     const sj = producao.addOperador({ fichaId: s.id, operadorId: joao.id });
     producao.upsertRegistro({ operadorDiarioId: sj.id, horarioBloco: '07:12 - 08:00', meta: 50, realizado: 55 });
@@ -299,9 +295,7 @@ describe('dashboard por etapas', () => {
       { operadorNome: 'JOÃO', totalRealizado: 41, totalMeta: 40 },
       { operadorNome: 'MARIA', totalRealizado: 0, totalMeta: 0 },
     ]);
-    // porHora continua mostrando o dia inteiro
     expect(m.porHora.length).toBe(2);
-    // fichas sem nada naquela faixa continuam listadas, zeradas
     expect(d.etapas.find((e) => e.rotulo === 'Soldagem')).toMatchObject({ totalRealizado: 0, totalMeta: 0, pctAtingimento: null });
   });
 

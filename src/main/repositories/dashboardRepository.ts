@@ -19,7 +19,6 @@ export interface FichaDoDia {
   produtoVersao: string;
 }
 
-/** Fichas do dia na ordem do processo (etapa, depois variação, depois produto). */
 export function listarFichasDoDia(data: string, produtoId: number | null): FichaDoDia[] {
   return db
     .select({
@@ -46,7 +45,6 @@ export function listarFichasDoDia(data: string, produtoId: number | null): Ficha
     .all();
 }
 
-/** Totais por operador da ficha; com `bloco`, considera só aquela faixa de horário. */
 export function totaisPorOperador(fichaId: number, bloco: string | null): DadosPorOperador[] {
   return db
     .select({

@@ -24,7 +24,6 @@ export function atualizar(id: number, dados: { nome?: string; ativo?: boolean })
     .get();
 }
 
-/** O que será apagado junto: as escalas do operador (em N cartões) e os registros dele. */
 export function impacto(id: number): ImpactoExclusao {
   const escalas = db
     .select({ total: count(), cartoes: countDistinct(producaoOperadorDiario.fichaId) })
@@ -45,7 +44,6 @@ export function impacto(id: number): ImpactoExclusao {
   };
 }
 
-/** Apaga o operador e as escalas dele (os registros horários saem em cascata). Os cartões continuam. */
 export function remover(id: number): void {
   db.transaction((tx) => {
     tx.delete(producaoOperadorDiario).where(eq(producaoOperadorDiario.operadorId, id)).run();

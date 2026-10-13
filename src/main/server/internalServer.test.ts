@@ -81,7 +81,6 @@ describe('API para o gestor', () => {
     );
     expect(consulta.json.data.operadores[0].registros).toHaveLength(1);
 
-    // sem informar a variação é outra ficha: não existe
     const semVariacao = await chamar('GET', `/api/producao/ficha?data=2026-10-05&produtoId=${prod.id}&etapaId=${soldagem.id}`);
     expect(semVariacao.json).toEqual({ success: true, data: null });
 
@@ -105,8 +104,6 @@ describe('API para o gestor', () => {
     const aberta = await chamar('GET', `/api/producao/ficha/${cartoes.json.data[0].fichaId}`);
     expect(aberta.json.data.operadores[0].registros).toHaveLength(1);
     expect((await chamar('GET', '/api/producao/ficha/9999')).status).toBe(400);
-
-    // exclusão do cartão pela web
     expect((await chamar('DELETE', `/api/producao/ficha/${ficha.data.id}`)).json.success).toBe(true);
     expect((await chamar('GET', '/api/producao/cartoes?data=2026-10-05')).json.data).toEqual([]);
     expect((await chamar('DELETE', `/api/producao/ficha/${ficha.data.id}`)).status).toBe(400);
